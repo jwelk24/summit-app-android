@@ -222,9 +222,9 @@ struct BudgetView: View {
                         Button {
                             showingRename = true
                         } label: {
-                            Label("Rename Header", systemImage: "textformat")
+                            Label("Customize Tabs", systemImage: "rectangle.3.group")
                         }
-                        .accessibilityIdentifier("renameHeaderButton")
+                        .accessibilityIdentifier("customizeTabsButton")
                     } label: {
                         Label("Actions", systemImage: "ellipsis.circle")
                     }
@@ -242,55 +242,171 @@ struct BudgetView: View {
                 }
             }
             .sheet(isPresented: $showingRename) {
-                RenameHeaderSheet(currentTitle: $budgetTitle)
+                CustomizeTabsView()
             }
             .accessibilityIdentifier("budgetScreen")
         }
     }
 }
 
-private struct RenameHeaderSheet: View {
-    @Binding var currentTitle: String
+// MARK: - Tab customization
 
+struct TabIdentity: Identifiable {
+    let id: String
+    let titleKey: String
+    let iconKey: String
+    let defaultTitle: String
+    let defaultIcon: String
+}
+
+let tabIdentities: [TabIdentity] = [
+    TabIdentity(id: "budget", titleKey: "budgetTitle", iconKey: "budgetIcon", defaultTitle: "Budget", defaultIcon: "list.bullet.rectangle"),
+    TabIdentity(id: "transactions", titleKey: "transactionsTitle", iconKey: "transactionsIcon", defaultTitle: "Transactions", defaultIcon: "creditcard"),
+    TabIdentity(id: "netWorth", titleKey: "netWorthTitle", iconKey: "netWorthIcon", defaultTitle: "Net Worth", defaultIcon: "chart.line.uptrend.xyaxis"),
+    TabIdentity(id: "horizon", titleKey: "horizonTitle", iconKey: "horizonIcon", defaultTitle: "Horizon", defaultIcon: "mountain.2"),
+    TabIdentity(id: "reports", titleKey: "reportsTitle", iconKey: "reportsIcon", defaultTitle: "Reports", defaultIcon: "chart.pie"),
+]
+
+let curatedTabIcons: [String] = [
+    "list.bullet.rectangle", "list.bullet", "rectangle.stack",
+    "creditcard", "wallet.pass", "banknote",
+    "dollarsign.circle", "dollarsign.square", "centsign.circle",
+    "chart.line.uptrend.xyaxis", "chart.bar", "chart.bar.xaxis",
+    "chart.pie", "chart.dots.scatter", "chart.xyaxis.line",
+    "mountain.2", "mountain.2.fill", "globe.americas",
+    "house", "building.columns", "briefcase",
+    "cart", "bag", "gift",
+    "calendar", "calendar.badge.clock", "clock",
+    "flag", "target", "star",
+    "bookmark", "bell", "sparkles",
+    "folder", "doc.text", "tray.full",
+    "arrow.up.right", "arrow.down.right", "arrow.up.arrow.down",
+    "arrow.left.arrow.right", "leaf", "bolt",
+]
+
+struct CustomizeTabsView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var draft: String = ""
-    @State private var didLoad = false
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Header Title") {
-                    TextField("Budget", text: $draft)
-                }
+            List {
                 Section {
-                    Text("This changes the title at the top of the Budget screen and the label on the bottom tab.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Section {
-                    Button("Reset to Default") {
-                        draft = "Budget"
+                    ForEach(tabIdentities) { identity in
+                        NavigationLink {
+                            TabAppearanceEditor(identity: identity)
+                        } label: {
+                            TabRow(identity: identity)
+                        }
                     }
+                } header: {
+                    Text("Tabs")
+                } footer: {
+                    Text("Tap a tab to change its label or icon. The new name appears both on the bottom bar and at the top of that screen.")
                 }
             }
-            .navigationTitle("Rename Header")
+            .navigationTitle("Customize Tabs")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        let trimmed = draft.trimmingCharacters(in: .whitespaces)
-                        currentTitle = trimmed.isEmpty ? "Budget" : trimmed
-                        dismiss()
-                    }
+                    Button("Done") { dismiss() }
                 }
             }
-            .onAppear {
-                if !didLoad {
-                    draft = currentTitle
-                    didLoad = true
+        }
+    }
+}
+
+private struct TabRow: View {
+    let identity: TabIdentity
+
+    @AppStorage private var title: String
+    @AppStorage private var icon: String
+
+    init(identity: TabIdentity) {
+        self.identity = identity
+        self._title = AppStorage(wrappedValue: identity.defaultTitle, identity.titleKey)
+        self._icon = AppStorage(wrappedValue: identity.defaultIcon, identity.iconKey)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .frame(width: 32, height: 32)
+                .foregroundStyle(.tint)
+            Text(title)
+            Spacer()
+        }
+    }
+}
+
+private struct TabAppearanceEditor: View {
+    let identity: TabIdentity
+
+    @Environment(\.dismiss) private var dismiss
+
+    @AppStorage private var title: String
+    @AppStorage private var icon: String
+
+    @State private var draftTitle: String = ""
+    @State private var draftIcon: String = ""
+    @State private var didLoad = false
+
+    init(identity: TabIdentity) {
+        self.identity = identity
+        self._title = AppStorage(wrappedValue: identity.defaultTitle, identity.titleKey)
+        self._icon = AppStorage(wrappedValue: identity.defaultIcon, identity.iconKey)
+    }
+
+    private let gridColumns = [GridItem(.adaptive(minimum: 56), spacing: 8)]
+
+    var body: some View {
+        Form {
+            Section("Label") {
+                TextField(identity.defaultTitle, text: $draftTitle)
+            }
+
+            Section("Icon") {
+                LazyVGrid(columns: gridColumns, spacing: 8) {
+                    ForEach(curatedTabIcons, id: \.self) { name in
+                        Button { draftIcon = name } label: {
+                            Image(systemName: name)
+                                .font(.title3)
+                                .frame(width: 48, height: 48)
+                                .background(
+                                    draftIcon == name ? Color.accentColor.opacity(0.25) : Color.gray.opacity(0.08),
+                                    in: RoundedRectangle(cornerRadius: 10)
+                                )
+                                .foregroundStyle(draftIcon == name ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(name)
+                    }
                 }
+                .padding(.vertical, 4)
+            }
+
+            Section {
+                Button("Reset to Default") {
+                    draftTitle = identity.defaultTitle
+                    draftIcon = identity.defaultIcon
+                }
+            }
+        }
+        .navigationTitle("Customize \(identity.defaultTitle)")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save") {
+                    let trimmed = draftTitle.trimmingCharacters(in: .whitespaces)
+                    title = trimmed.isEmpty ? identity.defaultTitle : trimmed
+                    icon = draftIcon
+                    dismiss()
+                }
+            }
+        }
+        .onAppear {
+            if !didLoad {
+                draftTitle = title
+                draftIcon = icon
+                didLoad = true
             }
         }
     }
@@ -559,6 +675,8 @@ struct TransactionsView: View {
     @Query private var accounts: [AccountModel]
     @Query private var categories: [CategoryModel]
 
+    @AppStorage("transactionsTitle") private var transactionsTitle: String = "Transactions"
+
     @State private var showingNew = false
     @State private var editing: TransactionModel?
     @State private var showingImporter = false
@@ -575,7 +693,7 @@ struct TransactionsView: View {
                 }
                 .onDelete(perform: delete)
             }
-            .navigationTitle("Transactions")
+            .navigationTitle(transactionsTitle)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -986,6 +1104,8 @@ struct NetWorthView: View {
     @Query private var accounts: [AccountModel]
     @Query private var transactions: [TransactionModel]
 
+    @AppStorage("netWorthTitle") private var netWorthTitle: String = "Net Worth"
+
     @State private var showingNew = false
     @State private var editing: AccountModel?
     @State private var selectedAccountIDs: Set<UUID>? = nil
@@ -1176,7 +1296,7 @@ struct NetWorthView: View {
                     }
                 }
             }
-            .navigationTitle("Net Worth")
+            .navigationTitle(netWorthTitle)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button { showingNew = true } label: {
@@ -1225,6 +1345,8 @@ struct HorizonView: View {
 
     @Query private var accounts: [AccountModel]
     @Query private var scheduled: [ScheduledItemModel]
+
+    @AppStorage("horizonTitle") private var horizonTitle: String = "Horizon"
 
     @State private var showingNewScheduled = false
     @State private var editingScheduled: ScheduledItemModel?
@@ -1318,7 +1440,7 @@ struct HorizonView: View {
                     }
                 }
             }
-            .navigationTitle("Horizon")
+            .navigationTitle(horizonTitle)
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     if !due.isEmpty {
@@ -2802,6 +2924,8 @@ struct ReportsView: View {
 
     @Query private var transactions: [TransactionModel]
 
+    @AppStorage("reportsTitle") private var reportsTitle: String = "Reports"
+
     private var spendingByCategory: [CategorySpending] {
         let cal = Calendar.current
         let year = engine.selectedYear
@@ -2920,7 +3044,7 @@ struct ReportsView: View {
                     .frame(height: 220)
                 }
             }
-            .navigationTitle("Reports")
+            .navigationTitle(reportsTitle)
         }
     }
 }
