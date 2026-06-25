@@ -53,6 +53,13 @@ struct SummitApp: App {
             RootView()
                 .environment(engine)
                 .task {
+                    // If there's a persisted Supabase session, pull cloud data BEFORE seeding,
+                    // so the seed only runs when there's genuinely no data anywhere.
+                    await SupabaseService.shared.loadUser()
+                    if SupabaseService.shared.isAuthenticated {
+                        await HouseholdService.shared.refresh()
+                        await SyncService.shared.syncAccounts(context: sharedModelContainer.mainContext)
+                    }
                     await MainActor.run {
                         BudgetEngine.seedIfNeeded(context: sharedModelContainer.mainContext)
                         SummitSnapshotWriter.write(context: sharedModelContainer.mainContext)

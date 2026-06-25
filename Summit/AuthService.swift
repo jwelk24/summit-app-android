@@ -32,6 +32,14 @@ enum AuthService {
         )
     }
 
+    /// Adds Apple as an additional identity for the currently signed-in user.
+    /// After this, signing in with either email/password or Apple returns the same user.
+    static func linkApple(idToken: String, nonce: String) async throws {
+        _ = try await SupabaseService.shared.client.auth.linkIdentityWithIdToken(
+            credentials: .init(provider: .apple, idToken: idToken, nonce: nonce)
+        )
+    }
+
     static func randomNonceString(length: Int = 32) -> String {
         let charset = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._")
         return String((0..<length).map { _ in charset.randomElement()! })

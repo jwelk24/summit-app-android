@@ -16,6 +16,8 @@ struct AuthView: View {
     @State private var inviteBusy: Bool = false
     @State private var inviteMessage: String?
     @State private var appleNonce: String = ""
+    @State private var linkAppleNonce: String = ""
+    @State private var linkAppleMessage: String?
 
     @State private var supabase = SupabaseService.shared
     @State private var household = HouseholdService.shared
@@ -134,6 +136,28 @@ struct AuthView: View {
                 if let msg = inviteMessage {
                     Section {
                         Text(msg).foregroundStyle(.secondary).font(.callout)
+                    }
+                }
+
+                Section("Sign-in providers") {
+                    SignInWithAppleButton(.continue) { request in
+                        linkAppleNonce = AuthService.randomNonceString()
+                        request.requestedScopes = [.fullName, .email]
+                        request.nonce = AuthService.sha256(linkAppleNonce)
+                    } onCompletion: { result in
+                        Task { await handleAppleLinkResult(result) }
+                    }
+                    .frame(height: 44)
+                    .signInWithAppleButtonStyle(.black)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    Text("Adds Apple Sign-in to this account so you can use either email or Apple on any device.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let msg = linkAppleMessage {
+                        Text(msg)
+                            .font(.caption)
+                            .foregroundStyle(msg.hasPrefix("✅") ? .green : .red)
                     }
                 }
 
@@ -257,6 +281,23 @@ struct AuthView: View {
             }
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func handleAppleLinkResult(_ result: Result<ASAuthorization, Error>) async {
+        linkAppleMessage = nil
+        do {
+            let authorization = try result.get()
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData = credential.identityToken,
+                  let idToken = String(data: tokenData, encoding: .utf8) else {
+                linkAppleMessage = "Apple returned no token."
+                return
+            }
+            try await AuthService.linkApple(idToken: idToken, nonce: linkAppleNonce)
+            linkAppleMessage = "✅ Apple Sign-in linked to this account."
+        } catch {
+            linkAppleMessage = error.localizedDescription
         }
     }
 
