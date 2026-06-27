@@ -20,15 +20,22 @@ import com.summit.android.service.HouseholdRole
 import com.summit.android.service.RealtimeService
 import java.util.UUID
 
+import com.summit.android.billing.PremiumManager
+import com.summit.android.billing.SubscriptionTier
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AuthScreen() {
+fun AuthScreen(
+    onUpgrade: () -> Unit
+) {
     val isAuthenticated by SupabaseService.isAuthenticated.collectAsStateWithLifecycle()
     val currentEmail by SupabaseService.currentEmail.collectAsStateWithLifecycle()
     
     val household by HouseholdService.currentHousehold.collectAsStateWithLifecycle()
     val role by HouseholdService.currentRole.collectAsStateWithLifecycle()
     val isLoading by HouseholdService.isLoading.collectAsStateWithLifecycle()
+    
+    val currentTier by PremiumManager.currentTier.collectAsStateWithLifecycle()
     
     val scope = rememberCoroutineScope()
 
@@ -69,11 +76,27 @@ fun AuthScreen() {
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 if (role == HouseholdRole.OWNER) {
-                    InviteMemberCard()
+                    if (currentTier == SubscriptionTier.PREMIUM) {
+                        InviteMemberCard()
+                    } else {
+                        LockedFeatureCard(
+                            title = "Invite a member",
+                            message = "Household sharing is a Premium feature.",
+                            onUpgrade = onUpgrade
+                        )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
                 
-                JoinHouseholdCard()
+                if (currentTier == SubscriptionTier.PREMIUM) {
+                    JoinHouseholdCard()
+                } else {
+                    LockedFeatureCard(
+                        title = "Join a household",
+                        message = "Collaborating with others requires Premium.",
+                        onUpgrade = onUpgrade
+                    )
+                }
                 
             } else {
                 SignInForm()
@@ -285,3 +308,18 @@ fun SignInForm() {
 }
 
 enum class AuthMode { SIGN_IN, SIGN_UP }
+
+@Composable
+fun LockedFeatureCard(title: String, message: String, onUpgrade: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onUpgrade, modifier = Modifier.fillMaxWidth()) {
+                Text("View Plans")
+            }
+        }
+    }
+}

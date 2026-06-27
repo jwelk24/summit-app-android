@@ -9,7 +9,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.summit.android.billing.PremiumManager
 import com.summit.android.billing.SubscriptionTier
+import com.summit.android.billing.SubscriptionPeriod
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,7 +27,7 @@ fun PaywallScreen(onDismiss: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Choose Your Plan") },
+                title = { Text("Upgrade Summit") },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
@@ -44,13 +45,13 @@ fun PaywallScreen(onDismiss: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Elevate Your Finances",
+                "Choose Your Peak",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
             Text(
-                "Choose the Summit plan that fits your life.",
+                "Unlock the full power of automated budgeting.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.padding(top = 8.dp)
@@ -59,12 +60,16 @@ fun PaywallScreen(onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
 
             TierCard(
-                name = "Summit Pro",
-                price = "$9.99/mo",
-                features = listOf("Plaid Bank Sync", "30-Day Forecasting", "Basic Insights", "Solo Use"),
-                buttonText = "Start Pro Trial",
-                onSelect = { 
+                tier = SubscriptionTier.PRO,
+                features = listOf(
+                    "Up to 5 Bank Links via Plaid",
+                    "30-Day Cash-Flow Forecast",
+                    "12-Month Historical Data",
+                    "Real-time Cloud Sync"
+                ),
+                onSelect = { period ->
                     PremiumManager.setTier(SubscriptionTier.PRO)
+                    PremiumManager.setPeriod(period)
                     onDismiss()
                 }
             )
@@ -72,22 +77,36 @@ fun PaywallScreen(onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
 
             TierCard(
-                name = "Summit Premium",
-                price = "$19.99/mo",
+                tier = SubscriptionTier.PREMIUM,
                 features = listOf(
-                    "Everything in Pro",
-                    "Household Sharing",
+                    "Up to 20 Bank Links",
+                    "Full 365-Day Horizon",
                     "AI Smart Categorization",
                     "AI Weekly Summaries",
                     "AI Receipt Scanning",
-                    "90-Day Full Horizon"
+                    "Family Household Sharing",
+                    "Custom Category Rules",
+                    "Smart Spending Alerts"
                 ),
-                buttonText = "Go Premium",
                 isHighlighted = true,
-                onSelect = {
+                onSelect = { period ->
                     PremiumManager.setTier(SubscriptionTier.PREMIUM)
+                    PremiumManager.setPeriod(period)
                     onDismiss()
                 }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            TextButton(onClick = { /* Restore Purchases logic */ }) {
+                Text("Restore Purchases")
+            }
+            Text(
+                "Subscriptions auto-renew until cancelled. Manage in Play Store settings.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
             )
         }
     }
@@ -95,13 +114,15 @@ fun PaywallScreen(onDismiss: () -> Unit) {
 
 @Composable
 fun TierCard(
-    name: String,
-    price: String,
+    tier: SubscriptionTier,
     features: List<String>,
-    buttonText: String,
     isHighlighted: Boolean = false,
-    onSelect: () -> Unit
+    onSelect: (SubscriptionPeriod) -> Unit
 ) {
+    val monthlyPrice = PremiumManager.getMonthlyPriceLabel(tier)
+    val yearlyPrice = PremiumManager.getYearlyPriceLabel(tier)
+    val savings = PremiumManager.getYearlySavingsPercent(tier)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -112,30 +133,58 @@ fun TierCard(
         Column(modifier = Modifier.padding(24.dp)) {
             if (isHighlighted) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text(" RECOMMENDED", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Text(" RECOMMENDED", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
-            Text(name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(price, style = MaterialTheme.typography.titleLarge)
+            Text("Summit ${tier.displayName}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             
             Spacer(modifier = Modifier.height(16.dp))
             
             features.forEach { feature ->
-                Row(modifier = Modifier.padding(vertical = 4.dp)) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF10B981))
                     Text(feature, modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodySmall)
                 }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
             
+            // Monthly Button
             Button(
-                onClick = onSelect,
+                onClick = { onSelect(SubscriptionPeriod.MONTHLY) },
                 modifier = Modifier.fillMaxWidth(),
-                colors = if (isHighlighted) ButtonDefaults.buttonColors() else ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isHighlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                )
             ) {
-                Text(buttonText)
+                Text("Monthly: $monthlyPrice")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Yearly Button with Savings Badge
+            OutlinedButton(
+                onClick = { onSelect(SubscriptionPeriod.YEARLY) },
+                modifier = Modifier.fillMaxWidth(),
+                border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Yearly: $yearlyPrice")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        color = Color(0xFF10B981),
+                        shape = MaterialTheme.shapes.extraSmall
+                    ) {
+                        Text(
+                            "SAVE $savings%",
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
     }

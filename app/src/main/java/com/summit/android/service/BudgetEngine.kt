@@ -194,4 +194,53 @@ class BudgetEngine(context: Context) {
             }
         }
     }
+
+    companion object {
+        fun ageOfMoneyDays(transactions: List<TransactionEntity>, lookback: Int = 10, asOf: Date = Date()): Int? {
+            val sorted = transactions
+                .filter { !it.date.after(asOf) }
+                .sortedBy { it.date }
+
+            val queue = mutableListOf<Pair<Date, BigDecimal>>()
+            val perOutflow = mutableListOf<Double>()
+
+            for (tx in sorted) {
+                if (tx.amount > BigDecimal.ZERO) {
+                    queue.add(tx.date to tx.amount)
+                } else if (tx.amount < BigDecimal.ZERO) {
+                    var remaining = tx.amount.abs()
+                    var weightedDays = 0.0
+                    var consumedTotal = BigDecimal.ZERO
+                    
+                    while (remaining > BigDecimal.ZERO && queue.isNotEmpty()) {
+                        val (inflowDate, inflowRemaining) = queue[0]
+                        val consumed = remaining.min(inflowRemaining)
+                        
+                        val diff = tx.date.time - inflowDate.time
+                        val days = (diff / (1000 * 60 * 60 * 24)).toInt()
+                        
+                        weightedDays += days.toDouble() * consumed.toDouble()
+                        consumedTotal = consumedTotal.add(consumed)
+                        remaining = remaining.subtract(consumed)
+                        
+                        val newRemaining = inflowRemaining.subtract(consumed)
+                        if (newRemaining == BigDecimal.ZERO) {
+                            queue.removeAt(0)
+                        } else {
+                            queue[0] = inflowDate to newRemaining
+                        }
+                    }
+                    
+                    if (consumedTotal > BigDecimal.ZERO) {
+                        val avg = weightedDays / consumedTotal.toDouble()
+                        perOutflow.add(avg)
+                    }
+                }
+            }
+
+            if (perOutflow.isEmpty()) return null
+            val recent = perOutflow.takeLast(lookback)
+            return (recent.sum() / recent.size).toInt()
+        }
+    }
 }

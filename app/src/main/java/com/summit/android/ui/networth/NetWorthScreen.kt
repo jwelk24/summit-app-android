@@ -109,21 +109,40 @@ fun NetWorthScreen(
             } else {
                 val assets = uiState.accounts.filter { it.type.isAsset }
                 if (assets.isNotEmpty()) {
-                    item {
-                        SectionHeader("Assets")
-                    }
-                    items(assets) { account ->
-                        AccountRow(account)
+                    item { SectionHeader("Assets") }
+                    items(assets) { account -> AccountRow(account) }
+                }
+
+                if (currentTier == SubscriptionTier.PREMIUM && uiState.holdings.isNotEmpty()) {
+                    item { SectionHeader("Investment Holdings") }
+                    items(uiState.holdings) { holding ->
+                        ListItem(
+                            headlineContent = { Text(holding.securityName ?: holding.tickerSymbol ?: "Unknown") },
+                            supportingContent = { Text("${holding.quantity} shares · @ ${formatCurrency(holding.institutionPrice.toDouble())}") },
+                            trailingContent = { Text(formatCurrency(holding.institutionValue.toDouble())) }
+                        )
                     }
                 }
 
                 val liabilities = uiState.accounts.filter { !it.type.isAsset }
                 if (liabilities.isNotEmpty()) {
-                    item {
-                        SectionHeader("Liabilities")
-                    }
-                    items(liabilities) { account ->
-                        AccountRow(account)
+                    item { SectionHeader("Liabilities") }
+                    items(liabilities) { account -> AccountRow(account) }
+                }
+
+                if (currentTier == SubscriptionTier.PREMIUM && uiState.liabilities.isNotEmpty()) {
+                    item { SectionHeader("Loan Details") }
+                    items(uiState.liabilities) { liability ->
+                        ListItem(
+                            headlineContent = { Text(liability.loanName ?: "Plaid Loan") },
+                            supportingContent = {
+                                Column {
+                                    liability.nextPaymentDueDate?.let { Text("Next Payment: ${SimpleDateFormat("MMM d").format(it)}") }
+                                    liability.interestRatePercentage?.let { Text("Rate: $it%") }
+                                }
+                            },
+                            trailingContent = { liability.minimumPayment?.let { Text(formatCurrency(it.toDouble())) } }
+                        )
                     }
                 }
             }

@@ -8,6 +8,7 @@ import com.summit.android.data.AppDatabase
 import com.summit.android.data.entity.AccountEntity
 import com.summit.android.data.entity.CategoryEntity
 import com.summit.android.data.entity.TransactionEntity
+import com.summit.android.service.RuleEngine
 import com.summit.android.service.SpendingTodayManager
 import com.summit.android.data.entity.TransactionSplitEntity
 import kotlinx.coroutines.flow.*
@@ -100,17 +101,26 @@ class TransactionEditorViewModel(application: Application) : AndroidViewModel(ap
             
             val transactionId = _editingTransaction.value?.id ?: UUID.randomUUID()
             
-            val transaction = TransactionEntity(
+            var finalCategoryId = if (_splits.value.isEmpty()) categoryId else null
+            
+            val tempTx = TransactionEntity(
                 id = transactionId,
                 merchant = merchant,
                 amount = signedAmount,
                 date = date,
                 accountId = accountId,
-                categoryId = if (_splits.value.isEmpty()) categoryId else null,
+                categoryId = finalCategoryId,
                 memo = memo,
                 cleared = cleared,
                 flagColor = flagColor
             )
+
+            if (finalCategoryId == null && _splits.value.isEmpty()) {
+                val rules = db.categoryRuleDao().getEnabledRules()
+                finalCategoryId = RuleEngine.applyRules(rules, tempTx, db)
+            }
+
+            val transaction = tempTx.copy(categoryId = finalCategoryId)
             
             db.transactionDao().insert(transaction)
             

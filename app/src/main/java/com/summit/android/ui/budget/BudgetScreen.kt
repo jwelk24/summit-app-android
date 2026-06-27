@@ -27,13 +27,19 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BudgetScreen(viewModel: BudgetViewModel = viewModel()) {
+fun BudgetScreen(
+    onManageRules: () -> Unit,
+    onManageAlerts: () -> Unit,
+    onManageSubscriptions: () -> Unit,
+    viewModel: BudgetViewModel = viewModel()
+) {
     val groups by viewModel.groups.collectAsState()
     val categories by viewModel.categories.collectAsState()
     val year by viewModel.selectedYear.collectAsState()
     val month by viewModel.selectedMonth.collectAsState()
     val availableToBudget by viewModel.availableToBudget.collectAsState()
-    
+    val ageOfMoney by viewModel.ageOfMoney.collectAsState()
+
     val pullToRefreshState = rememberPullToRefreshState()
     if (pullToRefreshState.isRefreshing) {
         LaunchedEffect(true) {
@@ -47,8 +53,46 @@ fun BudgetScreen(viewModel: BudgetViewModel = viewModel()) {
             TopAppBar(
                 title = { Text("Budget") },
                 actions = {
-                    IconButton(onClick = { viewModel.autoAssign() }) {
+                    var showMenu by remember { mutableStateOf(false) }
+                    IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Actions")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Auto-Assign to Goals") },
+                            onClick = {
+                                viewModel.autoAssign()
+                                showMenu = false
+                            },
+                            leadingIcon = { Icon(Icons.Default.AutoFixHigh, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Manage Rules") },
+                            onClick = {
+                                onManageRules()
+                                showMenu = false
+                            },
+                            leadingIcon = { Icon(Icons.Default.WandSparkles, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Smart Alerts") },
+                            onClick = {
+                                onManageAlerts()
+                                showMenu = false
+                            },
+                            leadingIcon = { Icon(Icons.Default.NotificationsActive, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Subscriptions") },
+                            onClick = {
+                                onManageSubscriptions()
+                                showMenu = false
+                            },
+                            leadingIcon = { Icon(Icons.Default.Repeat, contentDescription = null) }
+                        )
                     }
                 }
             )
@@ -63,7 +107,7 @@ fun BudgetScreen(viewModel: BudgetViewModel = viewModel()) {
                     onNext = { viewModel.nextMonth() }
                 )
                 
-                BudgetSummary(availableToBudget)
+                BudgetSummary(availableToBudget, ageOfMoney)
 
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     groups.forEach { group ->
@@ -106,14 +150,34 @@ fun MonthNavigator(year: Int, month: Int, onPrev: () -> Unit, onNext: () -> Unit
 }
 
 @Composable
-fun BudgetSummary(amount: BigDecimal) {
+fun BudgetSummary(amount: BigDecimal, ageOfMoney: Int?) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Available to Budget", style = MaterialTheme.typography.labelLarge)
-            Text(formatCurrency(amount.toDouble()), style = MaterialTheme.typography.headlineMedium)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("Available to Budget", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        text = formatCurrency(amount.toDouble()),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                    )
+                }
+                ageOfMoney?.let {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = "Age of Money: ${it}d",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -139,7 +203,10 @@ fun CategoryRow(category: CategoryEntity) {
         headlineContent = { Text(category.name) },
         supportingContent = { Text("Activity: ${formatCurrency(0.0)} · Available: ${formatCurrency(0.0)}") },
         trailingContent = {
-            Text(formatCurrency(0.0), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = formatCurrency(0.0),
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+            )
         }
     )
 }

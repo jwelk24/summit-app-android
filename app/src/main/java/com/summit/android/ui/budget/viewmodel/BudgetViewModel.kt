@@ -36,6 +36,9 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     private val _availableToBudget = MutableStateFlow(BigDecimal.ZERO)
     val availableToBudget: StateFlow<BigDecimal> = _availableToBudget
 
+    private val _ageOfMoney = MutableStateFlow<Int?>(null)
+    val ageOfMoney: StateFlow<Int?> = _ageOfMoney
+
     init {
         updateAvailableToBudget()
     }
@@ -45,6 +48,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
             val txs = db.transactionDao().getAll().first()
             val month = engine.ensureMonth(_selectedYear.value, _selectedMonth.value)
             _availableToBudget.value = engine.availableToBudget(txs, month, _selectedYear.value, _selectedMonth.value)
+            _ageOfMoney.value = BudgetEngine.ageOfMoneyDays(txs)
         }
     }
 

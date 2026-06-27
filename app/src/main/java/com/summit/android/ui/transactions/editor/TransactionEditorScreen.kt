@@ -16,15 +16,19 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.math.BigDecimal
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.WandSparkles
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.summit.android.billing.PremiumManager
+import com.summit.android.billing.SubscriptionTier
 import com.summit.android.ui.transactions.editor.TransactionSplitDraft
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,12 +36,15 @@ import com.summit.android.ui.transactions.editor.TransactionSplitDraft
 fun TransactionEditorScreen(
     transactionId: UUID? = null,
     onDismiss: () -> Unit,
+    onCreateRule: (String, UUID) -> Unit,
     viewModel: TransactionEditorViewModel = viewModel()
 ) {
     val accounts by viewModel.accounts.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val editingTransaction by viewModel.editingTransaction.collectAsStateWithLifecycle()
     val splits by viewModel.splits.collectAsStateWithLifecycle()
+    
+    val currentTier by PremiumManager.currentTier.collectAsStateWithLifecycle()
 
     var merchant by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
@@ -164,6 +171,22 @@ fun TransactionEditorScreen(
                     label = { Text("Merchant") },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                AnimatedVisibility(
+                    visible = currentTier == SubscriptionTier.PREMIUM && 
+                              merchant.isNotBlank() && 
+                              selectedCategoryId != null && 
+                              splits.isEmpty()
+                ) {
+                    TextButton(
+                        onClick = { onCreateRule(merchant, selectedCategoryId!!) },
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Icon(Icons.Default.WandSparkles, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Create Auto-Categorization Rule")
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 

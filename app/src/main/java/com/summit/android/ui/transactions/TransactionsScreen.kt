@@ -28,12 +28,15 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
+import com.summit.android.billing.PremiumManager
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TransactionsScreen(
     onAddTransaction: () -> Unit,
     onEditTransaction: (UUID) -> Unit,
     onScanReceipt: () -> Unit,
+    onUpgrade: () -> Unit,
     viewModel: TransactionsViewModel = viewModel()
 ) {
     val transactions by viewModel.transactions.collectAsState()
@@ -52,7 +55,13 @@ fun TransactionsScreen(
             TopAppBar(
                 title = { Text("Transactions") },
                 actions = {
-                    IconButton(onClick = onScanReceipt) {
+                    IconButton(onClick = {
+                        if (PremiumManager.canUseReceiptScanner()) {
+                            onScanReceipt()
+                        } else {
+                            onUpgrade()
+                        }
+                    }) {
                         Icon(Icons.Default.DocumentScanner, contentDescription = "Scan Receipt")
                     }
                 }

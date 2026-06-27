@@ -22,6 +22,8 @@ data class ChartPoint(val date: Long, val value: Float)
 
 data class NetWorthUiState(
     val accounts: List<AccountEntity> = emptyList(),
+    val holdings: List<com.summit.android.data.entity.InvestmentHoldingEntity> = emptyList(),
+    val liabilities: List<com.summit.android.data.entity.LiabilityEntity> = emptyList(),
     val totalAssets: BigDecimal = BigDecimal.ZERO,
     val totalLiabilities: BigDecimal = BigDecimal.ZERO,
     val netWorth: BigDecimal = BigDecimal.ZERO,
@@ -40,24 +42,26 @@ class NetWorthViewModel(application: Application) : AndroidViewModel(application
 
     val uiState: StateFlow<NetWorthUiState> = combine(
         db.netWorthDao().getAllAccounts(),
+        db.investmentDao().getAllHoldings(),
+        db.liabilityDao().getAll(),
         db.netWorthDao().getAllSnapshots(),
         db.transactionDao().getAll(),
         _timeRange
-    ) { accounts, snapshots, transactions, range ->
+    ) { accounts, holdings, liabilities, snapshots, transactions, range ->
         val assets = accounts.filter { it.type.isAsset }
             .fold(BigDecimal.ZERO) { acc, account -> acc.add(account.balance) }
-        val liabilities = accounts.filter { !it.type.isAsset }
+        val liabSum = accounts.filter { !it.type.isAsset }
             .fold(BigDecimal.ZERO) { acc, account -> acc.add(account.balance.abs()) }
         
-        val netWorth = assets.subtract(liabilities)
-
-        // Mock chart data for now, real calculation would involve iterating through dates
+        val netWorth = assets.subtract(liabSum)
         val chartData = calculateChartData(accounts, snapshots, transactions, range)
 
         NetWorthUiState(
             accounts = accounts,
+            holdings = holdings,
+            liabilities = liabilities,
             totalAssets = assets,
-            totalLiabilities = liabilities,
+            totalLiabilities = liabSum,
             netWorth = netWorth,
             timeRange = range,
             chartData = chartData

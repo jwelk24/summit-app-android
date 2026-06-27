@@ -137,7 +137,7 @@ class PlaidSyncService(context: Context) {
         val date = parsePlaidDate(tx.date) ?: Date()
         val amount = BigDecimal(-tx.amount)
         
-        val transaction = TransactionEntity(
+        val tempTx = TransactionEntity(
             date = date,
             amount = amount,
             merchant = tx.name,
@@ -147,6 +147,11 @@ class PlaidSyncService(context: Context) {
             accountId = account.id,
             categoryId = null
         )
+
+        val rules = db.categoryRuleDao().getEnabledRules()
+        val matchedCategoryId = RuleEngine.applyRules(rules, tempTx, db)
+        val transaction = tempTx.copy(categoryId = matchedCategoryId)
+
         db.transactionDao().insert(transaction)
 
         val link = PlaidTransactionLinkEntity(

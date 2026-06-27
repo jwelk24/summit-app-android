@@ -14,36 +14,56 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
+import com.summit.android.billing.PremiumManager
+import com.summit.android.ui.transactions.EmptyStateView
+import androidx.compose.material.icons.filled.Lock
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AIInsightsScreen(viewModel: AIInsightsViewModel = viewModel()) {
+fun AIInsightsScreen(
+    onUpgrade: () -> Unit,
+    viewModel: AIInsightsViewModel = viewModel()
+) {
     val digest by viewModel.digest.collectAsState()
     val isGeneratingDigest by viewModel.isGeneratingDigest.collectAsState()
     val isCategorizing by viewModel.isCategorizing.collectAsState()
+    
+    val currentTier by PremiumManager.currentTier.collectAsState()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Insights") }) }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                WeeklyDigestCard(
-                    digest = digest,
-                    isLoading = isGeneratingDigest,
-                    onGenerate = { viewModel.generateDigest() }
+        if (currentTier != com.summit.android.billing.SubscriptionTier.PREMIUM) {
+            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+                EmptyStateView(
+                    icon = Icons.Default.Lock,
+                    message = "AI Insights require a Premium subscription.",
+                    actionLabel = "View Plans",
+                    onAction = onUpgrade
                 )
             }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    WeeklyDigestCard(
+                        digest = digest,
+                        isLoading = isGeneratingDigest,
+                        onGenerate = { viewModel.generateDigest() }
+                    )
+                }
 
-            item {
-                SmartCategorizeCard(
-                    isLoading = isCategorizing,
-                    onRun = { viewModel.runSmartCategorize() }
-                )
+                item {
+                    SmartCategorizeCard(
+                        isLoading = isCategorizing,
+                        onRun = { viewModel.runSmartCategorize() }
+                    )
+                }
             }
         }
     }

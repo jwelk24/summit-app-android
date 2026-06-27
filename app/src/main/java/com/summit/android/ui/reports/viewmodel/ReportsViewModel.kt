@@ -5,9 +5,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import com.summit.android.data.AppDatabase
+import com.summit.android.service.PDFExporter
+import com.summit.android.service.ReportRange
+import com.summit.android.service.ReportsService
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.util.*
+import java.io.File
 
 data class CategorySpending(
     val categoryName: String,
@@ -77,4 +82,24 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             sixMonthFlow = sixMonthFlow
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ReportsUiState())
+
+    fun exportCSV(range: ReportRange, customStart: Date?, customEnd: Date?, onResult: (File?) -> Unit) {
+        viewModelScope.launch {
+            val period = ReportsService.resolvePeriod(range, customStart, customEnd)
+            val txs = db.transactionDao().getAll().first()
+            val file = ReportsService.exportToCSV(getApplication(), txs, period)
+            onResult(file)
+        }
+    }
+
+    fun exportPDF(range: ReportRange, customStart: Date?, customEnd: Date?, onResult: (File?) -> Unit) {
+        viewModelScope.launch {
+            val period = ReportsService.resolvePeriod(range, customStart, customEnd)
+            val txs = db.transactionDao().getAll().first()
+            val categories = db.categoryDao().getCategories().first().associate { it.id to it.name }
+            val summary = ReportsService.buildSummary(txs, period, categories)
+            val file = PDFExporter.exportReportToPDF(getApplication(), summary)
+            onResult(file)
+        }
+    }
 }

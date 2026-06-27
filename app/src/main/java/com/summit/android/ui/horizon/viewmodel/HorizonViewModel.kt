@@ -30,6 +30,8 @@ data class HorizonUiState(
     val projectionPoints: List<ProjectionPoint> = emptyList()
 )
 
+import com.summit.android.billing.PremiumManager
+
 class HorizonViewModel(application: Application) : AndroidViewModel(application) {
     private val db = Room.databaseBuilder(
         application,
@@ -38,8 +40,9 @@ class HorizonViewModel(application: Application) : AndroidViewModel(application)
 
     val uiState: StateFlow<HorizonUiState> = combine(
         db.accountDao().getAll(),
-        db.scheduledItemDao().getAll()
-    ) { accounts, scheduledItems ->
+        db.scheduledItemDao().getAll(),
+        PremiumManager.currentTier
+    ) { accounts, scheduledItems, tier ->
         val startingBalance = accounts
             .filter { it.type == AccountType.CHECKING || it.type == AccountType.SAVINGS }
             .fold(BigDecimal.ZERO) { acc, account -> acc.add(account.balance) }
@@ -53,7 +56,8 @@ class HorizonViewModel(application: Application) : AndroidViewModel(application)
 
         val pending = scheduledItems.filter { it.nextDate.before(today) }
         
-        val points = calculateProjections(startingBalance, scheduledItems, today)
+        val horizonDays = PremiumManager.getHorizonDays()
+        val points = calculateProjections(startingBalance, scheduledItems, today, horizonDays)
         
         val lowest = points.minOfOrNull { it.runningBalance } ?: startingBalance
         val last = points.lastOrNull()?.runningBalance ?: startingBalance
@@ -70,10 +74,11 @@ class HorizonViewModel(application: Application) : AndroidViewModel(application)
     private fun calculateProjections(
         startingBalance: BigDecimal,
         items: List<ScheduledItemEntity>,
-        today: Date
+        today: Date,
+        days: Int
     ): List<ProjectionPoint> {
         val calendar = Calendar.getInstance()
-        val horizon = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 90) }.time
+        val horizon = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, days) }.time
         
         val events = mutableListOf<Pair<Date, ScheduledItemEntity>>()
         

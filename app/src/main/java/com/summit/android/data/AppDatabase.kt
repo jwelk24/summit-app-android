@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.summit.android.data.converter.Converters
+import com.summit.android.data.dao.*
 import com.summit.android.data.entity.*
 
 @Database(
@@ -23,7 +24,8 @@ import com.summit.android.data.entity.*
         LiabilityEntity::class,
         SoftDeleteTombstoneEntity::class,
         PlaidAccountLinkEntity::class,
-        PlaidTransactionLinkEntity::class
+        PlaidTransactionLinkEntity::class,
+        CategoryRuleEntity::class
     ],
     version = 1,
     exportSchema = false
@@ -38,4 +40,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun plaidLinkDao(): PlaidLinkDao
     abstract fun budgetDao(): BudgetDao
     abstract fun goalDao(): GoalDao
+    abstract fun categoryRuleDao(): CategoryRuleDao
+    abstract fun investmentDao(): InvestmentDao
+    abstract fun liabilityDao(): LiabilityDao
 }

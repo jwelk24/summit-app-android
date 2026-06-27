@@ -17,6 +17,10 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object PlaidConnections : Screen("plaid_connections", "Plaid Connections", Icons.Default.Link)
     object ReceiptScanner : Screen("receipt_scanner", "Scan Receipt", Icons.Default.DocumentScanner)
     object Paywall : Screen("paywall", "Upgrade", Icons.Default.Star)
+    object CategoryRules : Screen("category_rules", "Rules", Icons.Default.WandSparkles)
+    object SmartAlerts : Screen("smart_alerts", "Smart Alerts", Icons.Default.NotificationsActive)
+    object Subscriptions : Screen("subscriptions", "Subscriptions", Icons.Default.Repeat)
+    object RuleEditor : Screen("rule_editor", "Edit Rule", Icons.Default.Edit)
 }
 
 val bottomNavItems = listOf(
