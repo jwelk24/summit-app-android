@@ -19,6 +19,15 @@ interface PlaidApi {
         @Header("X-Plaid-Access-Token") accessToken: String,
         @Body body: SyncBody
     ): SyncResponse
+
+    @GET("/api/investments/holdings")
+    suspend fun getHoldings(@Header("X-Plaid-Access-Token") accessToken: String): HoldingsResponse
+
+    @GET("/api/investments/transactions")
+    suspend fun getInvestmentTransactions(@Header("X-Plaid-Access-Token") accessToken: String): InvestmentTransactionsResponse
+
+    @GET("/api/liabilities")
+    suspend fun getLiabilities(@Header("X-Plaid-Access-Token") accessToken: String): LiabilitiesResponse
 }
 
 data class LinkTokenResponse(val linkToken: String, val hostedLinkUrl: String)
@@ -51,6 +60,95 @@ data class PlaidTransaction(
     val name: String
 )
 data class RemovedTransaction(val transaction_id: String)
+
+// Holdings
+data class HoldingsResponse(
+    val holdings: List<PlaidHolding>,
+    val securities: List<PlaidSecurity>
+)
+data class PlaidHolding(
+    val account_id: String,
+    val security_id: String,
+    val quantity: Double,
+    val institution_price: Double,
+    val institution_value: Double,
+    val cost_basis: Double?,
+    val iso_currency_code: String?,
+    val institution_price_as_of: String?
+)
+data class PlaidSecurity(
+    val security_id: String,
+    val ticker_symbol: String?,
+    val name: String?,
+    val type: String?,
+    val is_cash_equivalent: Boolean
+)
+
+// Investment Transactions
+data class InvestmentTransactionsResponse(
+    val investment_transactions: List<PlaidInvestmentTransaction>,
+    val securities: List<PlaidSecurity>
+)
+data class PlaidInvestmentTransaction(
+    val investment_transaction_id: String,
+    val account_id: String,
+    val security_id: String?,
+    val date: String,
+    val name: String,
+    val amount: Double,
+    val fees: Double?,
+    val quantity: Double?,
+    val price: Double?,
+    val type: String?,
+    val subtype: String?,
+    val iso_currency_code: String?
+)
+
+// Liabilities
+data class LiabilitiesResponse(val liabilities: PlaidLiabilities)
+data class PlaidLiabilities(
+    val credit: List<PlaidCreditLiability>?,
+    val mortgage: List<PlaidMortgageLiability>?,
+    val student: List<PlaidStudentLiability>?
+)
+data class PlaidCreditLiability(
+    val account_id: String?,
+    val aprs: List<PlaidApr>?,
+    val last_statement_balance: Double?,
+    val last_statement_issue_date: String?,
+    val minimum_payment_amount: Double?,
+    val next_payment_due_date: String?,
+    val last_payment_amount: Double?,
+    val last_payment_date: String?
+)
+data class PlaidApr(val apr_type: String?, val apr_percentage: Double?)
+data class PlaidMortgageLiability(
+    val account_id: String?,
+    val next_monthly_payment: Double?,
+    val next_payment_due_date: String?,
+    val last_payment_amount: Double?,
+    val last_payment_date: String?,
+    val interest_rate: PlaidInterestRate?,
+    val origination_principal_amount: Double?,
+    val origination_date: String?,
+    val maturity_date: String?,
+    val loan_type_description: String?,
+    val loan_term: String?
+)
+data class PlaidInterestRate(val percentage: Double?, val type: String?)
+data class PlaidStudentLiability(
+    val account_id: String?,
+    val last_statement_balance: Double?,
+    val last_statement_issue_date: String?,
+    val minimum_payment_amount: Double?,
+    val next_payment_due_date: String?,
+    val last_payment_amount: Double?,
+    val last_payment_date: String?,
+    val interest_rate_percentage: Double?,
+    val origination_principal_amount: Double?,
+    val origination_date: String?,
+    val loan_name: String?
+)
 
 object PlaidService {
     private const val BASE_URL = "http://10.0.2.2:8080" // Android emulator localhost

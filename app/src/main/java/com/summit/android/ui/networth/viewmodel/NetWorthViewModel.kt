@@ -66,7 +66,9 @@ class NetWorthViewModel(application: Application) : AndroidViewModel(application
             val cal = Calendar.getInstance().apply { time = snap.date }
             Triple(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
         }
-        val chartPoints = byDay.keys.sorted().map { key ->
+        val chartPoints = byDay.keys
+            .sortedWith(compareBy({ it.first }, { it.second }, { it.third }))
+            .map { key ->
             val daySnaps = byDay[key] ?: emptyList()
             val latestPerAccount = daySnaps.groupBy { it.accountId }
                 .mapValues { (_, v) -> v.maxByOrNull { it.date }!! }

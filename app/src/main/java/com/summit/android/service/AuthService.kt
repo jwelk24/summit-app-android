@@ -1,7 +1,7 @@
 package com.summit.android.service
 
 import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.gotrue.providers.Google
+import io.github.jan.supabase.gotrue.providers.Apple
 import io.github.jan.supabase.gotrue.providers.builtin.Email
 import io.github.jan.supabase.gotrue.providers.builtin.IDToken
 import java.security.MessageDigest
@@ -42,16 +42,14 @@ object AuthService {
         auth.signInWith(IDToken) {
             this.idToken = idToken
             this.nonce = nonce
-            this.provider = Google // placeholder — swap for Apple provider when SDK exposes it
+            this.provider = Apple
         }
     }
 
-    suspend fun linkApple(idToken: String, nonce: String) {
-        auth.linkIdentityWith(IDToken) {
-            this.idToken = idToken
-            this.nonce = nonce
-            this.provider = Google // placeholder — swap for Apple provider when SDK exposes it
-        }
+    // linkIdentity only supports OAuth redirect flow in the Supabase Kotlin SDK;
+    // linking an Apple ID token is not supported server-side via this path.
+    suspend fun linkApple() {
+        auth.linkIdentity(Apple)
     }
 
     fun randomNonceString(length: Int = 32): String {

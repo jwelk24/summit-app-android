@@ -94,7 +94,7 @@ class PlaidSyncService(context: Context) {
     suspend fun mergePlaidAccount(
         plaidAccountId: String,
         plaidItemId: String,
-        into account: AccountEntity,
+        account: AccountEntity,
         currentBalance: BigDecimal
     ) {
         val existing = db.plaidLinkDao().getAccountLink(plaidAccountId)
