@@ -34,6 +34,7 @@ data class TransactionEntity(
     val memo: String?,
     val cleared: Boolean,
     val flagColor: String?,
+    val pfcPrimary: String?,
     val accountId: UUID?,
     val categoryId: UUID?
 )

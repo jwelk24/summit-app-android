@@ -4,11 +4,16 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
+import com.summit.android.billing.PremiumManager
 import com.summit.android.data.AppDatabase
 import com.summit.android.data.entity.ScheduledItemEntity
 import com.summit.android.data.model.AccountType
 import com.summit.android.data.model.ScheduledKind
+import com.summit.android.service.BudgetEngine
+import com.summit.android.service.CashFlowForecaster
+import com.summit.android.service.ForecastResult
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.util.*
 
@@ -27,10 +32,9 @@ data class HorizonUiState(
     val lowestProjected: BigDecimal = BigDecimal.ZERO,
     val projected90Day: BigDecimal = BigDecimal.ZERO,
     val pendingItems: List<ScheduledItemEntity> = emptyList(),
-    val projectionPoints: List<ProjectionPoint> = emptyList()
+    val projectionPoints: List<ProjectionPoint> = emptyList(),
+    val forecastResult: ForecastResult? = null
 )
-
-import com.summit.android.billing.PremiumManager
 
 class HorizonViewModel(application: Application) : AndroidViewModel(application) {
     private val db = Room.databaseBuilder(
@@ -56,8 +60,11 @@ class HorizonViewModel(application: Application) : AndroidViewModel(application)
 
         val pending = scheduledItems.filter { it.nextDate.before(today) }
         
-        val horizonDays = PremiumManager.getHorizonDays()
+        val horizonDays = PremiumManager.getMaxHorizonDays()
         val points = calculateProjections(startingBalance, scheduledItems, today, horizonDays)
+        
+        val forecaster = CashFlowForecaster(startingBalance, scheduledItems, horizonDays)
+        val forecastResult = forecaster.project()
         
         val lowest = points.minOfOrNull { it.runningBalance } ?: startingBalance
         val last = points.lastOrNull()?.runningBalance ?: startingBalance
@@ -67,9 +74,23 @@ class HorizonViewModel(application: Application) : AndroidViewModel(application)
             lowestProjected = lowest,
             projected90Day = last,
             pendingItems = pending,
-            projectionPoints = points
+            projectionPoints = points,
+            forecastResult = forecastResult
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HorizonUiState())
+
+    fun addScheduledItem(item: ScheduledItemEntity) {
+        viewModelScope.launch {
+            db.scheduledItemDao().insert(item)
+        }
+    }
+
+    fun postItem(item: ScheduledItemEntity) {
+        viewModelScope.launch {
+            val engine = BudgetEngine(getApplication())
+            engine.postOne(item)
+        }
+    }
 
     private fun calculateProjections(
         startingBalance: BigDecimal,

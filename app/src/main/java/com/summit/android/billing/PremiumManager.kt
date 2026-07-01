@@ -20,9 +20,12 @@ enum class PremiumFeature(val icon: String, val title: String, val description: 
     AI_INSIGHTS("sparkles", "AI Insights", "Personalized analysis of your spending and savings patterns."),
     AUTO_RULES("wand.and.stars", "Auto-Categorization", "Automatically categorize transactions with custom rules."),
     SMART_ALERTS("bell.badge", "Smart Alerts", "Get notified about overspending and unusual charges."),
-    SUBSCRIPTION_TRACKER("repeat", "Subscription Tracker", "Surface every recurring charge so nothing slips by."),
+    SUBSCRIPTION_TRACKER("repeat.circle", "Subscription Tracker", "Surface every recurring charge so nothing slips by."),
     INVESTMENTS("chart.line.uptrend.xyaxis", "Investments", "Track holdings, performance, and dividends alongside your budget."),
-    LIABILITIES("creditcard.trianglebadge.exclamationmark", "Liabilities", "See loan balances, APRs, and payoff projections in one place.")
+    LIABILITIES("creditcard.trianglebadge.exclamationmark", "Liabilities", "See loan balances, APRs, and payoff projections in one place."),
+    EXPORT_REPORTS("square.and.arrow.up", "Export Reports", "Export PDF or CSV reports for any date range."),
+    UNLIMITED_HORIZON("infinity", "Unlimited Horizon", "Forecast cash flow as far as a year out."),
+    UNLIMITED_BANK_LINKS("building.columns", "Unlimited Bank Links", "Connect all your bank, credit, and investment accounts — no limit.")
 }
 
 object PremiumManager {
@@ -54,7 +57,7 @@ object PremiumManager {
     }
 
     fun getYearlySavingsPercent(tier: SubscriptionTier): Int = when (tier) {
-        SubscriptionTier.PRO -> 28 // Approx savings vs monthly
+        SubscriptionTier.PRO -> 28
         SubscriptionTier.PREMIUM -> 36
         else -> 0
     }
@@ -68,15 +71,16 @@ object PremiumManager {
     fun canUseSubscriptionTracker(): Boolean = _currentTier.value == SubscriptionTier.PREMIUM
     fun canTrackInvestments(): Boolean = _currentTier.value == SubscriptionTier.PREMIUM
     fun canTrackLiabilities(): Boolean = _currentTier.value == SubscriptionTier.PREMIUM
+    fun canExportReports(): Boolean = _currentTier.value == SubscriptionTier.PREMIUM
 
     // Numeric Caps
-    fun getMaxPlaidItems(): Int = when (_currentTier.value) {
-        SubscriptionTier.PREMIUM -> 20
-        SubscriptionTier.PRO -> 5
-        else -> 0
-    }
+    fun getMaxPlaidItems(): Int = if (_currentTier.value == SubscriptionTier.PREMIUM) 100 else 15
 
     fun getMaxHorizonDays(): Int = if (_currentTier.value == SubscriptionTier.PREMIUM) 365 else 30
 
     fun getMaxHistoryMonths(): Int = if (_currentTier.value == SubscriptionTier.PREMIUM) Int.MAX_VALUE else 12
+    
+    fun tierRequired(feature: PremiumFeature): SubscriptionTier {
+        return SubscriptionTier.PREMIUM
+    }
 }

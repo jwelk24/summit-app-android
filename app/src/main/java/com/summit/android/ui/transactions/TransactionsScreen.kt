@@ -2,6 +2,7 @@ package com.summit.android.ui.transactions
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -56,7 +57,7 @@ fun TransactionsScreen(
                 title = { Text("Transactions") },
                 actions = {
                     IconButton(onClick = {
-                        if (PremiumManager.canUseReceiptScanner()) {
+                        if (PremiumManager.canScanReceipts()) {
                             onScanReceipt()
                         } else {
                             onUpgrade()
@@ -113,21 +114,21 @@ fun SwipeToDeleteRow(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    val dismissState = rememberDismissState(
+    val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = {
-            if (it == DismissValue.DismissedToStart) {
+            if (it == SwipeToDismissBoxValue.EndToStart) {
                 onDelete()
                 true
             } else false
         }
     )
 
-    SwipeToDismiss(
+    SwipeToDismissBox(
         state = dismissState,
         modifier = modifier,
-        background = {
+        backgroundContent = {
             val color = when (dismissState.dismissDirection) {
-                DismissDirection.EndToStart -> Color.Red
+                SwipeToDismissBoxValue.EndToStart -> Color.Red
                 else -> Color.Transparent
             }
             Box(
@@ -137,15 +138,15 @@ fun SwipeToDeleteRow(
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                if (dismissState.dismissDirection == DismissDirection.EndToStart) {
+                if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.White)
                 }
             }
         },
-        dismissContent = {
+        enableDismissFromStartToEnd = false,
+        content = {
             content()
-        },
-        directions = setOf(DismissDirection.EndToStart)
+        }
     )
 }
 

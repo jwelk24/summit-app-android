@@ -2,65 +2,55 @@ package com.summit.android.service
 
 import android.content.Context
 import android.graphics.Bitmap
-import com.google.ai.client.generativeai.GenerativeModel
+import android.net.Uri
+import android.provider.MediaStore
+import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import kotlinx.coroutines.tasks.await
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.math.BigDecimal
+import java.util.*
+import java.util.regex.Pattern
 
-@Serializable
-data class ReceiptLineItem(
-    val name: String,
-    val amount: Double
+data class ScannedReceipt(
+    val merchant: String?,
+    val amount: BigDecimal?,
+    val date: Date?
 )
 
-@Serializable
-data class ReceiptDraft(
-    val merchant: String,
-    val date: String,
-    val lineItems: List<ReceiptLineItem>,
-    val subtotal: Double,
-    val tax: Double,
-    val tip: Double,
-    val total: Double,
-    val currencyCode: String
-)
-
-class ReceiptScanner(private val context: Context) {
+object ReceiptScanner {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-    private val generativeModel = GenerativeModel(
-        modelName = "gemini-1.5-flash",
-        apiKey = "YOUR_GEMINI_API_KEY" // Placeholder
-    )
-    private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun scan(bitmap: Bitmap): ReceiptDraft? {
-        val image = InputImage.fromBitmap(bitmap, 0)
-        val visionText = recognizer.process(image).await()
-        val rawText = visionText.text
-        
-        if (rawText.isBlank()) return null
-        
-        return parse(rawText)
+    suspend fun scan(context: Context, uri: Uri): ScannedReceipt = withContext(Dispatchers.IO) {
+        val bitmap = MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+        scan(bitmap)
     }
 
-    private suspend fun parse(rawText: String): ReceiptDraft? {
-        val prompt = """
-            Convert this OCR'd receipt text into a structured JSON object.
-            Return ONLY a JSON object with: 'merchant', 'date' (YYYY-MM-DD), 'lineItems' (list of name/amount), 'subtotal', 'tax', 'tip', 'total', and 'currencyCode'.
-            
-            Text:
-            $rawText
-        """.trimIndent()
-
-        return try {
-            val response = generativeModel.generateContent(prompt)
-            val jsonText = response.text?.substringAfter("{")?.substringBeforeLast("}")?.let { "{$it}" }
-            jsonText?.let { json.decodeFromString<ReceiptDraft>(it) }
+    suspend fun scan(bitmap: Bitmap): ScannedReceipt = withContext(Dispatchers.IO) {
+        val image = InputImage.fromBitmap(bitmap, 0)
+        try {
+            val result = Tasks.await(recognizer.process(image))
+            val text = result.text
+            parse(text)
         } catch (e: Exception) {
-            null
+            ScannedReceipt(null, null, null)
         }
+    }
+
+    private fun parse(text: String): ScannedReceipt {
+        val lines = text.split("\n")
+        val merchant = lines.firstOrNull()?.trim()
+
+        val amountRegex = Pattern.compile("(?i)(total|sum|amount)[:\\s]*[\\$]?\\s*([\\d.,]+)")
+        var amount: BigDecimal? = null
+        val matcher = amountRegex.matcher(text)
+        if (matcher.find()) {
+            val str = matcher.group(2)?.replace(",", "")
+            amount = str?.let { try { BigDecimal(it) } catch(e: Exception) { null } }
+        }
+
+        return ScannedReceipt(merchant, amount, Date())
     }
 }

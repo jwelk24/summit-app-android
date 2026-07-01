@@ -11,7 +11,17 @@ import com.summit.android.service.BudgetEngine
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
-import java.util.Calendar
+import java.util.*
+
+data class BudgetUiState(
+    val groups: List<CategoryGroupEntity> = emptyList(),
+    val categories: List<CategoryEntity> = emptyList(),
+    val availableToBudget: BigDecimal = BigDecimal.ZERO,
+    val selectedDate: Date = Date(),
+    val allocations: Map<UUID, BigDecimal> = emptyMap(),
+    val activity: Map<UUID, BigDecimal> = emptyMap(),
+    val ageOfMoney: Int? = null
+)
 
 class BudgetViewModel(application: Application) : AndroidViewModel(application) {
     private val db = Room.databaseBuilder(
@@ -21,71 +31,70 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     
     private val engine = BudgetEngine(application)
 
-    val groups: StateFlow<List<CategoryGroupEntity>> = db.categoryDao().getGroups()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val categories: StateFlow<List<CategoryEntity>> = db.categoryDao().getCategories()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
     private val _selectedYear = MutableStateFlow(Calendar.getInstance().get(Calendar.YEAR))
-    val selectedYear: StateFlow<Int> = _selectedYear
-
     private val _selectedMonth = MutableStateFlow(Calendar.getInstance().get(Calendar.MONTH) + 1)
-    val selectedMonth: StateFlow<Int> = _selectedMonth
 
-    private val _availableToBudget = MutableStateFlow(BigDecimal.ZERO)
-    val availableToBudget: StateFlow<BigDecimal> = _availableToBudget
+    val uiState: StateFlow<BudgetUiState> = combine(
+        db.categoryDao().getGroups(),
+        db.categoryDao().getCategories(),
+        db.transactionDao().getAll(),
+        _selectedYear,
+        _selectedMonth
+    ) { groups, categories, transactions, year, month ->
+        val budgetMonth = engine.ensureMonth(year, month)
+        val allocs = db.budgetDao().getAllocationsForMonth(budgetMonth.id).first()
+        val allocationMap = mutableMapOf<UUID, BigDecimal>()
+        allocs.forEach { alloc ->
+            alloc.categoryId?.let { allocationMap[it] = alloc.amount }
+        }
+        
+        val activityMap = categories.associate { cat ->
+            cat.id to engine.activity(cat, year, month)
+        }
 
-    private val _ageOfMoney = MutableStateFlow<Int?>(null)
-    val ageOfMoney: StateFlow<Int?> = _ageOfMoney
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, year)
+            set(Calendar.MONTH, month - 1)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
 
-    init {
-        updateAvailableToBudget()
+        BudgetUiState(
+            groups = groups,
+            categories = categories,
+            availableToBudget = engine.availableToBudget(transactions, budgetMonth, year, month),
+            selectedDate = cal.time,
+            allocations = allocationMap,
+            activity = activityMap,
+            ageOfMoney = BudgetEngine.ageOfMoneyDays(transactions)
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BudgetUiState())
+
+    fun changeMonth(delta: Int) {
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, _selectedYear.value)
+            set(Calendar.MONTH, _selectedMonth.value - 1)
+            add(Calendar.MONTH, delta)
+        }
+        _selectedYear.value = cal.get(Calendar.YEAR)
+        _selectedMonth.value = cal.get(Calendar.MONTH) + 1
     }
 
-    private fun updateAvailableToBudget() {
+    fun setAssigned(categoryId: UUID, amount: BigDecimal) {
         viewModelScope.launch {
-            val txs = db.transactionDao().getAll().first()
             val month = engine.ensureMonth(_selectedYear.value, _selectedMonth.value)
-            _availableToBudget.value = engine.availableToBudget(txs, month, _selectedYear.value, _selectedMonth.value)
-            _ageOfMoney.value = BudgetEngine.ageOfMoneyDays(txs)
+            val category = db.categoryDao().getCategories().first().find { it.id == categoryId }
+            if (category != null) {
+                engine.setAssigned(amount, category, month)
+            }
         }
-    }
-
-    fun nextMonth() {
-        if (_selectedMonth.value == 12) {
-            _selectedMonth.value = 1
-            _selectedYear.value++
-        } else {
-            _selectedMonth.value++
-        }
-        updateAvailableToBudget()
-    }
-
-    fun prevMonth() {
-        if (_selectedMonth.value == 1) {
-            _selectedMonth.value = 12
-            _selectedYear.value--
-        } else {
-            _selectedMonth.value--
-        }
-        updateAvailableToBudget()
     }
 
     fun autoAssign() {
         viewModelScope.launch {
             val txs = db.transactionDao().getAll().first()
-            val cats = categories.value
+            val cats = db.categoryDao().getCategories().first()
             val month = engine.ensureMonth(_selectedYear.value, _selectedMonth.value)
             engine.autoAssignAvailable(txs, cats, month)
-            updateAvailableToBudget()
-        }
-    }
-
-    fun refresh() {
-        viewModelScope.launch {
-            // Trigger Sync
-            updateAvailableToBudget()
         }
     }
 }

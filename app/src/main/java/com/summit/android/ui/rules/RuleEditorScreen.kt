@@ -4,7 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,7 +55,7 @@ fun RuleEditorScreen(
                 title = { Text(if (ruleId == null) "New Rule" else "Edit Rule") },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -108,7 +109,7 @@ fun RuleEditorScreen(
             listOf("contains", "equals", "startsWith", "endsWith").forEach { op ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = matchKind == op, onClick = { matchKind = op })
-                    Text(op.capitalize())
+                    Text(op.replaceFirstChar { it.uppercase() })
                 }
             }
             
@@ -142,9 +143,13 @@ fun RuleEditorScreen(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text("Priority")
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { if (priority > 1) priority-- }) { Icon(Icons.Default.Remove, contentDescription = null) }
+                    IconButton(onClick = { if (priority > 1) priority-- }) { 
+                        Icon(Icons.Default.Remove, contentDescription = "Decrease") 
+                    }
                     Text("$priority")
-                    IconButton(onClick = { if (priority < 999) priority++ }) { Icon(Icons.Default.Add, contentDescription = null) }
+                    IconButton(onClick = { if (priority < 999) priority++ }) { 
+                        Icon(Icons.Default.Add, contentDescription = "Increase") 
+                    }
                 }
             }
             

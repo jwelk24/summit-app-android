@@ -4,30 +4,22 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.summit.android.data.entity.AccountEntity
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.Link
-import com.summit.android.ui.transactions.EmptyStateView
-import androidx.activity.compose.rememberLauncherForActivityResult
-import com.plaid.link.OpenPlaidLink
-import com.plaid.link.linkTokenConfiguration
-import com.plaid.link.result.LinkSuccess
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
 import com.patrykandpatrick.vico.compose.chart.line.lineChart
 import com.patrykandpatrick.vico.core.entry.entryModelOf
-import com.summit.android.ui.networth.viewmodel.ChartPoint
+import com.summit.android.billing.SubscriptionTier
 import com.summit.android.ui.networth.viewmodel.NetWorthTimeRange
 import com.summit.android.ui.networth.viewmodel.NetWorthViewModel
 import com.summit.android.ui.transactions.formatCurrency
@@ -37,26 +29,9 @@ import java.math.BigDecimal
 @Composable
 fun NetWorthScreen(
     onManageConnections: () -> Unit,
-    viewModel: NetWorthViewModel = viewModel()
+    viewModel: NetWorthViewModel = viewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val linkToken by viewModel.linkToken.collectAsState()
-
-    val linkLauncher = rememberLauncherForActivityResult(OpenPlaidLink()) { result ->
-        if (result is LinkSuccess) {
-            viewModel.exchangePublicToken(result.publicToken)
-        }
-    }
-
-    LaunchedEffect(linkToken) {
-        linkToken?.let {
-            val configuration = linkTokenConfiguration {
-                token = it
-            }
-            linkLauncher.launch(configuration)
-            viewModel.onLinkTokenUsed()
-        }
-    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -64,10 +39,7 @@ fun NetWorthScreen(
                 title = { Text("Net Worth") },
                 actions = {
                     IconButton(onClick = onManageConnections) {
-                        Icon(Icons.Default.Link, contentDescription = "Manage Connections")
-                    }
-                    IconButton(onClick = { viewModel.createLinkToken() }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Account")
+                        Icon(Icons.Default.Settings, contentDescription = "Connections")
                     }
                 }
             )
@@ -79,11 +51,7 @@ fun NetWorthScreen(
                 .fillMaxSize()
         ) {
             item {
-                NetWorthSummaryCard(
-                    netWorth = uiState.netWorth,
-                    totalAssets = uiState.totalAssets,
-                    totalLiabilities = uiState.totalLiabilities
-                )
+                NetWorthHero(uiState.netWorth)
             }
 
             item {
@@ -94,119 +62,63 @@ fun NetWorthScreen(
             }
 
             item {
-                NetWorthChart(uiState.chartData)
+                NetWorthChart(uiState.chartPoints)
             }
 
-            if (uiState.accounts.isEmpty()) {
-                item {
-                    EmptyStateView(
-                        icon = Icons.Default.AccountBalance,
-                        message = "No accounts linked yet.",
-                        actionLabel = "Link a Bank",
-                        onAction = { viewModel.createLinkToken() }
-                    )
+            if (uiState.currentTier == SubscriptionTier.PREMIUM && uiState.holdings.isNotEmpty()) {
+                item { SectionHeader("Investments") }
+                items(uiState.holdings) { holding ->
+                    HoldingRow(holding)
                 }
-            } else {
-                val assets = uiState.accounts.filter { it.type.isAsset }
-                if (assets.isNotEmpty()) {
-                    item { SectionHeader("Assets") }
-                    items(assets) { account -> AccountRow(account) }
-                }
+            }
 
-                if (currentTier == SubscriptionTier.PREMIUM && uiState.holdings.isNotEmpty()) {
-                    item { SectionHeader("Investment Holdings") }
-                    items(uiState.holdings) { holding ->
-                        ListItem(
-                            headlineContent = { Text(holding.securityName ?: holding.tickerSymbol ?: "Unknown") },
-                            supportingContent = { Text("${holding.quantity} shares · @ ${formatCurrency(holding.institutionPrice.toDouble())}") },
-                            trailingContent = { Text(formatCurrency(holding.institutionValue.toDouble())) }
-                        )
-                    }
-                }
+            item { SectionHeader("Assets") }
+            items(uiState.assets) { account ->
+                AccountRow(account)
+            }
 
-                val liabilities = uiState.accounts.filter { !it.type.isAsset }
-                if (liabilities.isNotEmpty()) {
-                    item { SectionHeader("Liabilities") }
-                    items(liabilities) { account -> AccountRow(account) }
-                }
-
-                if (currentTier == SubscriptionTier.PREMIUM && uiState.liabilities.isNotEmpty()) {
-                    item { SectionHeader("Loan Details") }
-                    items(uiState.liabilities) { liability ->
-                        ListItem(
-                            headlineContent = { Text(liability.loanName ?: "Plaid Loan") },
-                            supportingContent = {
-                                Column {
-                                    liability.nextPaymentDueDate?.let { Text("Next Payment: ${SimpleDateFormat("MMM d").format(it)}") }
-                                    liability.interestRatePercentage?.let { Text("Rate: $it%") }
-                                }
-                            },
-                            trailingContent = { liability.minimumPayment?.let { Text(formatCurrency(it.toDouble())) } }
-                        )
-                    }
-                }
+            item { SectionHeader("Liabilities") }
+            items(uiState.liabilities) { account ->
+                AccountRow(account)
             }
         }
     }
 }
 
 @Composable
-fun NetWorthSummaryCard(netWorth: BigDecimal, totalAssets: BigDecimal, totalLiabilities: BigDecimal) {
-    Card(
+fun NetWorthHero(netWorth: BigDecimal) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Net Worth", style = MaterialTheme.typography.titleMedium)
-                val color = if (netWorth >= BigDecimal.ZERO) Color.Green else Color.Red
-                Text(
-                    text = formatCurrency(netWorth.toDouble()),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = color
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Total Assets", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(formatCurrency(totalAssets.toDouble()), style = MaterialTheme.typography.bodyMedium)
-            }
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Total Liabilities", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("-${formatCurrency(totalLiabilities.toDouble())}", style = MaterialTheme.typography.bodyMedium)
-            }
-        }
+        Text("Net Worth", style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = formatCurrency(netWorth.toDouble()),
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
+            color = if (netWorth >= BigDecimal.ZERO) Color(0xFF10B981) else Color(0xFFEF4444)
+        )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimeRangeSelector(selectedRange: NetWorthTimeRange, onRangeSelected: (NetWorthTimeRange) -> Unit) {
+fun TimeRangeSelector(
+    selectedRange: NetWorthTimeRange,
+    onRangeSelected: (NetWorthTimeRange) -> Unit
+) {
     SingleChoiceSegmentedButtonRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp)
     ) {
-        NetWorthTimeRange.values().forEachIndexed { index, range ->
+        NetWorthTimeRange.entries.forEachIndexed { index, range ->
             SegmentedButton(
-                selected = selectedRange == range,
+                selected = range == selectedRange,
                 onClick = { onRangeSelected(range) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = NetWorthTimeRange.values().size)
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = NetWorthTimeRange.entries.size)
             ) {
                 Text(range.label)
             }
@@ -215,13 +127,10 @@ fun TimeRangeSelector(selectedRange: NetWorthTimeRange, onRangeSelected: (NetWor
 }
 
 @Composable
-fun NetWorthChart(chartData: List<ChartPoint>) {
-    if (chartData.isEmpty()) {
-        NetWorthChartPlaceholder()
-        return
-    }
-
-    val chartEntryModel = entryModelOf(chartData.map { it.value })
+fun NetWorthChart(points: List<BigDecimal>) {
+    if (points.size < 2) return
+    
+    val chartEntryModel = entryModelOf(*(points.map { it.toFloat() }.toTypedArray()))
 
     Card(
         modifier = Modifier
@@ -245,40 +154,41 @@ fun NetWorthChart(chartData: List<ChartPoint>) {
 }
 
 @Composable
-fun NetWorthChartPlaceholder() {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Text("Trend Chart Coming Soon", style = MaterialTheme.typography.bodySmall)
+fun HoldingRow(holding: com.summit.android.data.entity.InvestmentHoldingEntity) {
+    ListItem(
+        headlineContent = { Text(holding.securityName ?: "Unknown Security") },
+        supportingContent = { Text("${holding.quantity} shares") },
+        trailingContent = {
+            Text(
+                formatCurrency(holding.institutionValue.toDouble()),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
         }
-    }
-}
-
-@Composable
-fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
     )
 }
 
 @Composable
-fun AccountRow(account: AccountEntity) {
+fun AccountRow(account: com.summit.android.data.entity.AccountEntity) {
     ListItem(
         headlineContent = { Text(account.name) },
         supportingContent = { Text(account.type.displayName) },
         trailingContent = {
             Text(
-                text = formatCurrency(account.balance.toDouble()),
-                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                formatCurrency(account.balance.toDouble()),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
             )
         }
+    )
+}
+
+@Composable
+fun SectionHeader(title: String) {
+    Text(
+        text = title.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.secondary,
+        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
     )
 }

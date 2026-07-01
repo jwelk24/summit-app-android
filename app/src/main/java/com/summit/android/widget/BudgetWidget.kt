@@ -59,8 +59,7 @@ class BudgetWidget : GlanceAppWidget() {
             LinearProgressIndicator(
                 progress = frac,
                 modifier = GlanceModifier.fillMaxWidth().height(8.dp),
-                color = ColorProvider(tint),
-                backgroundColor = GlanceTheme.colors.onSurfaceVariant.copy(alpha = 0.2f)
+                color = ColorProvider(tint)
             )
             
             Spacer(GlanceModifier.height(4.dp))

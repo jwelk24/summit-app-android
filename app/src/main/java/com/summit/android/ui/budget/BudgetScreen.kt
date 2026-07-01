@@ -4,26 +4,20 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.summit.android.data.entity.CategoryEntity
-import com.summit.android.data.entity.CategoryGroupEntity
 import com.summit.android.ui.budget.viewmodel.BudgetViewModel
 import com.summit.android.ui.transactions.formatCurrency
-import java.text.DateFormatSymbols
-
-import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import java.math.BigDecimal
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,29 +25,17 @@ fun BudgetScreen(
     onManageRules: () -> Unit,
     onManageAlerts: () -> Unit,
     onManageSubscriptions: () -> Unit,
+    onCustomizeAppearance: () -> Unit,
     viewModel: BudgetViewModel = viewModel()
 ) {
-    val groups by viewModel.groups.collectAsState()
-    val categories by viewModel.categories.collectAsState()
-    val year by viewModel.selectedYear.collectAsState()
-    val month by viewModel.selectedMonth.collectAsState()
-    val availableToBudget by viewModel.availableToBudget.collectAsState()
-    val ageOfMoney by viewModel.ageOfMoney.collectAsState()
-
-    val pullToRefreshState = rememberPullToRefreshState()
-    if (pullToRefreshState.isRefreshing) {
-        LaunchedEffect(true) {
-            viewModel.refresh()
-            pullToRefreshState.endRefresh()
-        }
-    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Budget") },
                 actions = {
-                    var showMenu by remember { mutableStateOf(false) }
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Actions")
                     }
@@ -63,117 +45,69 @@ fun BudgetScreen(
                     ) {
                         DropdownMenuItem(
                             text = { Text("Auto-Assign to Goals") },
-                            onClick = {
+                            onClick = { 
                                 viewModel.autoAssign()
-                                showMenu = false
+                                showMenu = false 
                             },
-                            leadingIcon = { Icon(Icons.Default.AutoFixHigh, contentDescription = null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Manage Rules") },
-                            onClick = {
-                                onManageRules()
-                                showMenu = false
-                            },
-                            leadingIcon = { Icon(Icons.Default.WandSparkles, contentDescription = null) }
+                            leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) }
                         )
                         DropdownMenuItem(
                             text = { Text("Smart Alerts") },
-                            onClick = {
+                            onClick = { 
                                 onManageAlerts()
-                                showMenu = false
+                                showMenu = false 
                             },
                             leadingIcon = { Icon(Icons.Default.NotificationsActive, contentDescription = null) }
                         )
                         DropdownMenuItem(
+                            text = { Text("Category Rules") },
+                            onClick = { 
+                                onManageRules()
+                                showMenu = false 
+                            },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Rule, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
                             text = { Text("Subscriptions") },
-                            onClick = {
+                            onClick = { 
                                 onManageSubscriptions()
-                                showMenu = false
+                                showMenu = false 
                             },
                             leadingIcon = { Icon(Icons.Default.Repeat, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Customize Appearance") },
+                            onClick = { 
+                                onCustomizeAppearance()
+                                showMenu = false 
+                            },
+                            leadingIcon = { Icon(Icons.Default.Palette, contentDescription = null) }
                         )
                     }
                 }
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize().nestedScroll(pullToRefreshState.nestedScrollConnection)) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                MonthNavigator(
-                    year = year,
-                    month = month,
-                    onPrev = { viewModel.prevMonth() },
-                    onNext = { viewModel.nextMonth() }
-                )
-                
-                BudgetSummary(availableToBudget, ageOfMoney)
-
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    groups.forEach { group ->
-                        item {
-                            GroupHeader(group.name)
-                        }
-                        items(categories.filter { it.groupId == group.id }) { category ->
-                            CategoryRow(category)
-                        }
-                    }
-                }
-            }
-            
-            PullToRefreshContainer(
-                state = pullToRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter)
+        Column(modifier = Modifier.padding(padding)) {
+            MonthNavigator(
+                selectedDate = uiState.selectedDate,
+                onPrevious = { viewModel.changeMonth(-1) },
+                onNext = { viewModel.changeMonth(1) }
             )
-        }
-    }
-}
+            
+            AvailableToBudget(uiState.availableToBudget)
 
-@Composable
-fun MonthNavigator(year: Int, month: Int, onPrev: () -> Unit, onNext: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onPrev) {
-            Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Month")
-        }
-        Text(
-            text = "${DateFormatSymbols().months[month - 1]} $year",
-            style = MaterialTheme.typography.headlineSmall
-        )
-        IconButton(onClick = onNext) {
-            Icon(Icons.Default.ChevronRight, contentDescription = "Next Month")
-        }
-    }
-}
-
-@Composable
-fun BudgetSummary(amount: BigDecimal, ageOfMoney: Int?) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("Available to Budget", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        text = formatCurrency(amount.toDouble()),
-                        style = MaterialTheme.typography.headlineMedium.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                    )
-                }
-                ageOfMoney?.let {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Text(
-                            text = "Age of Money: ${it}d",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                uiState.groups.forEach { group ->
+                    item {
+                        GroupHeader(group.name)
+                    }
+                    items(uiState.categories.filter { it.groupId == group.id }) { category ->
+                        CategoryRow(
+                            category = category,
+                            assigned = uiState.allocations[category.id] ?: BigDecimal.ZERO,
+                            activity = uiState.activity[category.id] ?: BigDecimal.ZERO,
+                            onAssignedChange = { viewModel.setAssigned(category.id, it) }
                         )
                     }
                 }
@@ -183,29 +117,72 @@ fun BudgetSummary(amount: BigDecimal, ageOfMoney: Int?) {
 }
 
 @Composable
-fun GroupHeader(name: String) {
+fun MonthNavigator(
+    selectedDate: Date,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit
+) {
+    val sdf = remember { java.text.SimpleDateFormat("MMMM yyyy", Locale.getDefault()) }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onPrevious) {
+            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Previous")
+        }
+        Text(sdf.format(selectedDate), style = MaterialTheme.typography.titleMedium)
+        IconButton(onClick = onNext) {
+            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Next")
+        }
+    }
+}
+
+@Composable
+fun AvailableToBudget(amount: BigDecimal) {
     Surface(
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+        color = MaterialTheme.colorScheme.primaryContainer,
         modifier = Modifier.fillMaxWidth()
     ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Available to Budget", style = MaterialTheme.typography.labelMedium)
+            Text(formatCurrency(amount.toDouble()), style = MaterialTheme.typography.headlineMedium)
+        }
+    }
+}
+
+@Composable
+fun GroupHeader(name: String) {
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
         Text(
             text = name,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.titleSmall
         )
     }
 }
 
 @Composable
-fun CategoryRow(category: CategoryEntity) {
+fun CategoryRow(
+    category: CategoryEntity,
+    assigned: BigDecimal,
+    activity: BigDecimal,
+    onAssignedChange: (BigDecimal) -> Unit
+) {
+    val available = assigned.add(activity)
     ListItem(
         headlineContent = { Text(category.name) },
-        supportingContent = { Text("Activity: ${formatCurrency(0.0)} · Available: ${formatCurrency(0.0)}") },
+        supportingContent = { 
+            Text("Activity: ${formatCurrency(activity.toDouble())} · Available: ${formatCurrency(available.toDouble())}")
+        },
         trailingContent = {
-            Text(
-                text = formatCurrency(0.0),
-                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+            OutlinedTextField(
+                value = assigned.toString(),
+                onValueChange = { 
+                    it.toBigDecimalOrNull()?.let { amt -> onAssignedChange(amt) }
+                },
+                modifier = Modifier.width(100.dp),
+                textStyle = MaterialTheme.typography.bodyMedium
             )
         }
     )

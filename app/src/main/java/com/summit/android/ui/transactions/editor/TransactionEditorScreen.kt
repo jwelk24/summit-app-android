@@ -1,35 +1,40 @@
 package com.summit.android.ui.transactions.editor
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.summit.android.billing.SubscriptionTier
+import com.summit.android.billing.PremiumManager
+import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.*
-import java.math.BigDecimal
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.WandSparkles
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.summit.android.billing.PremiumManager
-import com.summit.android.billing.SubscriptionTier
-import com.summit.android.ui.transactions.editor.TransactionSplitDraft
+val flags = listOf(
+    "red" to Color(0xFFEF4444),
+    "orange" to Color(0xFFF59E0B),
+    "yellow" to Color(0xFFFBBF24),
+    "green" to Color(0xFF10B981),
+    "blue" to Color(0xFF3B82F6),
+    "purple" to Color(0xFF8B5CF6)
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,15 +81,13 @@ fun TransactionEditorScreen(
         }
     }
 
-    // ...
-
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(if (transactionId == null) "New Transaction" else "Edit Transaction") },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -136,8 +139,22 @@ fun TransactionEditorScreen(
                 .padding(16.dp)
         ) {
             item {
-                // ... inflow/outflow ...
-                
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    FilterChip(
+                        selected = !isInflow,
+                        onClick = { isInflow = false },
+                        label = { Text("Outflow") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    FilterChip(
+                        selected = isInflow,
+                        onClick = { isInflow = true },
+                        label = { Text("Inflow") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
@@ -147,7 +164,7 @@ fun TransactionEditorScreen(
                     readOnly = true,
                     trailingIcon = {
                         IconButton(onClick = { showDatePicker = true }) {
-                            Icon(Icons.Default.CalendarToday, contentDescription = "Select Date")
+                            Icon(Icons.Default.DateRange, contentDescription = "Select Date")
                         }
                     },
                     modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }
@@ -182,7 +199,7 @@ fun TransactionEditorScreen(
                         onClick = { onCreateRule(merchant, selectedCategoryId!!) },
                         modifier = Modifier.padding(top = 4.dp)
                     ) {
-                        Icon(Icons.Default.WandSparkles, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Create Auto-Categorization Rule")
                     }
@@ -262,7 +279,6 @@ fun TransactionEditorScreen(
                             
                             Spacer(modifier = Modifier.height(8.dp))
                             
-                            // Simplified category selection for split
                             Text("Category", style = MaterialTheme.typography.bodySmall)
                             categories.forEach { category ->
                                 Row(
@@ -336,7 +352,7 @@ fun TransactionEditorScreen(
                                 .clickable { flagColor = name }
                         ) {
                             if (flagColor == name) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Selected", tint = Color.White, modifier = Modifier.size(16.dp).align(Alignment.Center))
+                                Icon(Icons.Default.Check, contentDescription = "Selected", tint = Color.White, modifier = Modifier.size(16.dp).align(Alignment.Center))
                             }
                         }
                     }

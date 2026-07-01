@@ -31,4 +31,10 @@ interface TransactionDao {
 
     @Query("DELETE FROM transaction_splits WHERE transactionId = :transactionId")
     suspend fun deleteSplitsForTransaction(transactionId: UUID)
+
+    @Query("SELECT * FROM transaction_splits")
+    suspend fun getAllSplits(): List<TransactionSplitEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun updateSplit(split: TransactionSplitEntity)
 }

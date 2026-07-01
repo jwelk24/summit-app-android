@@ -4,31 +4,34 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
+import com.summit.android.billing.PremiumManager
+import com.summit.android.billing.SubscriptionTier
 import com.summit.android.data.AppDatabase
 import com.summit.android.data.entity.AccountEntity
-import com.summit.android.data.model.AccountType
+import com.summit.android.data.entity.BalanceSnapshotEntity
+import com.summit.android.data.entity.InvestmentHoldingEntity
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.util.*
+
 
 enum class NetWorthTimeRange(val label: String, val days: Int?) {
-    ONE_MONTH("1M", 30),
-    THREE_MONTHS("3M", 90),
-    SIX_MONTHS("6M", 180),
-    ONE_YEAR("1Y", 365),
-    ALL("All", null)
+    MONTH_1("1M", 30),
+    MONTH_3("3M", 90),
+    MONTH_6("6M", 180),
+    YEAR_1("1Y", 365),
+    ALL("ALL", null)
 }
 
-data class ChartPoint(val date: Long, val value: Float)
-
 data class NetWorthUiState(
-    val accounts: List<AccountEntity> = emptyList(),
-    val holdings: List<com.summit.android.data.entity.InvestmentHoldingEntity> = emptyList(),
-    val liabilities: List<com.summit.android.data.entity.LiabilityEntity> = emptyList(),
-    val totalAssets: BigDecimal = BigDecimal.ZERO,
-    val totalLiabilities: BigDecimal = BigDecimal.ZERO,
     val netWorth: BigDecimal = BigDecimal.ZERO,
-    val timeRange: NetWorthTimeRange = NetWorthTimeRange.THREE_MONTHS,
-    val chartData: List<ChartPoint> = emptyList()
+    val assets: List<AccountEntity> = emptyList(),
+    val liabilities: List<AccountEntity> = emptyList(),
+    val holdings: List<InvestmentHoldingEntity> = emptyList(),
+    val timeRange: NetWorthTimeRange = NetWorthTimeRange.MONTH_3,
+    val chartPoints: List<BigDecimal> = emptyList(),
+    val currentTier: SubscriptionTier = SubscriptionTier.NONE
 )
 
 class NetWorthViewModel(application: Application) : AndroidViewModel(application) {
@@ -37,104 +40,55 @@ class NetWorthViewModel(application: Application) : AndroidViewModel(application
         AppDatabase::class.java, "summit-db"
     ).build()
 
-    private val _timeRange = MutableStateFlow(NetWorthTimeRange.THREE_MONTHS)
-    val timeRange: StateFlow<NetWorthTimeRange> = _timeRange
+    private val _timeRange = MutableStateFlow(NetWorthTimeRange.MONTH_3)
 
     val uiState: StateFlow<NetWorthUiState> = combine(
-        db.netWorthDao().getAllAccounts(),
+        db.accountDao().getAll(),
         db.investmentDao().getAllHoldings(),
-        db.liabilityDao().getAll(),
         db.netWorthDao().getAllSnapshots(),
-        db.transactionDao().getAll(),
-        _timeRange
-    ) { accounts, holdings, liabilities, snapshots, transactions, range ->
+        combine(PremiumManager.currentTier, _timeRange) { tier, range -> tier to range }
+    ) { accounts, holdings, snapshots, (tier, range) ->
         val assets = accounts.filter { it.type.isAsset }
-            .fold(BigDecimal.ZERO) { acc, account -> acc.add(account.balance) }
-        val liabSum = accounts.filter { !it.type.isAsset }
-            .fold(BigDecimal.ZERO) { acc, account -> acc.add(account.balance.abs()) }
-        
-        val netWorth = assets.subtract(liabSum)
-        val chartData = calculateChartData(accounts, snapshots, transactions, range)
+        val liabilities = accounts.filter { !it.type.isAsset }
+
+        val totalAssets = assets.fold(BigDecimal.ZERO) { acc, a -> acc.add(a.balance) }
+        val totalLiabs = liabilities.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.balance.abs()) }
+
+        // Build net-worth history from balance snapshots, bucketed by day.
+        val cutoff: Date? = range.days?.let { days ->
+            Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -days) }.time
+        }
+        val filtered = if (cutoff != null) snapshots.filter { it.date.after(cutoff) } else snapshots
+        val assetIds = assets.map { it.id }.toSet()
+        val liabIds = liabilities.map { it.id }.toSet()
+
+        val byDay = filtered.groupBy { snap ->
+            val cal = Calendar.getInstance().apply { time = snap.date }
+            Triple(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+        }
+        val chartPoints = byDay.keys.sorted().map { key ->
+            val daySnaps = byDay[key] ?: emptyList()
+            val latestPerAccount = daySnaps.groupBy { it.accountId }
+                .mapValues { (_, v) -> v.maxByOrNull { it.date }!! }
+            val dayAssets = latestPerAccount.entries.filter { it.key in assetIds }
+                .fold(BigDecimal.ZERO) { acc, e -> acc.add(e.value.balance) }
+            val dayLiabs = latestPerAccount.entries.filter { it.key in liabIds }
+                .fold(BigDecimal.ZERO) { acc, e -> acc.add(e.value.balance.abs()) }
+            dayAssets.subtract(dayLiabs)
+        }
 
         NetWorthUiState(
-            accounts = accounts,
-            holdings = holdings,
+            netWorth = totalAssets.subtract(totalLiabs),
+            assets = assets,
             liabilities = liabilities,
-            totalAssets = assets,
-            totalLiabilities = liabSum,
-            netWorth = netWorth,
+            holdings = holdings,
             timeRange = range,
-            chartData = chartData
+            chartPoints = chartPoints,
+            currentTier = tier
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), NetWorthUiState())
 
-    private fun calculateChartData(
-        accounts: List<AccountEntity>,
-        snapshots: List<com.summit.android.data.entity.BalanceSnapshotEntity>,
-        transactions: List<com.summit.android.data.entity.TransactionEntity>,
-        range: NetWorthTimeRange
-    ): List<ChartPoint> {
-        val calendar = Calendar.getInstance()
-        val points = mutableListOf<ChartPoint>()
-        val days = range.days ?: 365
-        
-        for (i in days downTo 0 step (days / 10).coerceAtLeast(1)) {
-            val cal = Calendar.getInstance()
-            cal.add(Calendar.DAY_OF_YEAR, -i)
-            val date = cal.time
-            
-            // This is a simplified calculation: starting from current balance and subtracting transactions backwards
-            var total = BigDecimal.ZERO
-            for (account in accounts) {
-                var bal = account.balance
-                val afterTxs = transactions.filter { it.accountId == account.id && it.date.after(date) }
-                val txSum = afterTxs.fold(BigDecimal.ZERO) { acc, tx -> acc.add(tx.amount) }
-                bal = bal.subtract(txSum)
-                total = if (account.type.isAsset) total.add(bal) else total.subtract(bal.abs())
-            }
-            points.add(ChartPoint(date.time, total.toFloat()))
-        }
-        return points
-    }
-
     fun setTimeRange(range: NetWorthTimeRange) {
         _timeRange.value = range
-    }
-
-    private val _linkToken = MutableStateFlow<String?>(null)
-    val linkToken: StateFlow<String?> = _linkToken
-
-    fun createLinkToken() {
-        viewModelScope.launch {
-            try {
-                val response = PlaidService.api.createLinkToken(emptyMap())
-                _linkToken.value = response.linkToken
-            } catch (e: Exception) {
-                // Handle error
-            }
-        }
-    }
-
-    fun onLinkTokenUsed() {
-        _linkToken.value = null
-    }
-
-    fun exchangePublicToken(publicToken: String) {
-        viewModelScope.launch {
-            try {
-                val response = PlaidService.api.exchangePublicToken(mapOf("publicToken" to publicToken))
-                val item = StoredPlaidItem(
-                    itemId = response.itemId,
-                    accessToken = response.accessToken,
-                    institutionName = "Linked Bank", // We could fetch this from Plaid
-                    linkedAt = System.currentTimeMillis()
-                )
-                PlaidStorage(getApplication()).saveItem(item)
-                // Trigger a sync
-                PlaidSyncService(getApplication()).syncAll(item)
-            } catch (e: Exception) {
-                // Handle error
-            }
-        }
     }
 }

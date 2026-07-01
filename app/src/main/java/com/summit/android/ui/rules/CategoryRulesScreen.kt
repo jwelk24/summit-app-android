@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,7 +42,7 @@ fun CategoryRulesScreen(
                 title = { Text("Auto-Categorization") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -57,7 +58,7 @@ fun CategoryRulesScreen(
         if (currentTier != SubscriptionTier.PREMIUM) {
             Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 LockedFeatureCard(
-                    feature = com.summit.android.billing.PremiumFeature.AUTO_RULES,
+                    feature = PremiumFeature.AUTO_RULES,
                     onUpgrade = onUpgrade
                 )
             }
@@ -151,7 +152,7 @@ fun RuleRow(
 ) {
     ListItem(
         headlineContent = {
-            Text("${rule.matchField.capitalize()} ${rule.matchKind} \"${rule.pattern}\"")
+            Text("${rule.matchField} ${rule.matchKind} \"${rule.pattern}\"")
         },
         supportingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {

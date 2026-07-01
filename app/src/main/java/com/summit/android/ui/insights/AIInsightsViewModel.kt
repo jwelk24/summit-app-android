@@ -29,6 +29,9 @@ class AIInsightsViewModel(application: Application) : AndroidViewModel(applicati
     private val _isCategorizing = MutableStateFlow(false)
     val isCategorizing: StateFlow<Boolean> = _isCategorizing
 
+    private val _categorizeResult = MutableStateFlow<String?>(null)
+    val categorizeResult: StateFlow<String?> = _categorizeResult
+
     fun generateDigest() {
         viewModelScope.launch {
             _isGeneratingDigest.value = true
@@ -47,9 +50,11 @@ class AIInsightsViewModel(application: Application) : AndroidViewModel(applicati
     fun runSmartCategorize() {
         viewModelScope.launch {
             _isCategorizing.value = true
+            _categorizeResult.value = null
             try {
                 val transactions = db.transactionDao().getAll().first().filter { it.categoryId == null }
                 val categories = db.categoryDao().getCategories().first()
+                var updatedCount = 0
                 
                 transactions.forEach { tx ->
                     val suggestion = aiService.suggestCategory(tx, categories)
@@ -57,11 +62,17 @@ class AIInsightsViewModel(application: Application) : AndroidViewModel(applicati
                         val category = categories.find { it.id.toString() == suggestion.categoryId }
                         if (category != null) {
                             db.transactionDao().update(tx.copy(categoryId = category.id))
+                            updatedCount++
                         }
                     }
                 }
+                _categorizeResult.value = if (updatedCount == 0) {
+                    "Nothing to categorize — every transaction already has a category."
+                } else {
+                    "Categorized $updatedCount transaction${if (updatedCount == 1) "" else "s"}."
+                }
             } catch (e: Exception) {
-                // Handle error
+                _categorizeResult.value = "Error: ${e.localizedMessage}"
             } finally {
                 _isCategorizing.value = false
             }

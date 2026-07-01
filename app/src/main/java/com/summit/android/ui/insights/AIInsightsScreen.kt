@@ -3,10 +3,9 @@ package com.summit.android.ui.insights
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Sparkles
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +26,7 @@ fun AIInsightsScreen(
     val digest by viewModel.digest.collectAsState()
     val isGeneratingDigest by viewModel.isGeneratingDigest.collectAsState()
     val isCategorizing by viewModel.isCategorizing.collectAsState()
+    val categorizeResult by viewModel.categorizeResult.collectAsState()
     
     val currentTier by PremiumManager.currentTier.collectAsState()
 
@@ -61,6 +61,7 @@ fun AIInsightsScreen(
                 item {
                     SmartCategorizeCard(
                         isLoading = isCategorizing,
+                        result = categorizeResult,
                         onRun = { viewModel.runSmartCategorize() }
                     )
                 }
@@ -115,7 +116,7 @@ fun WeeklyDigestCard(
                 enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.Sparkles, contentDescription = null)
+                Icon(Icons.Default.AutoAwesome, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(if (digest == null) "Generate Weekly Digest" else "Regenerate")
             }
@@ -126,17 +127,22 @@ fun WeeklyDigestCard(
 @Composable
 fun SmartCategorizeCard(
     isLoading: Boolean,
+    result: String?,
     onRun: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Smart Categorize", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Let AI assign a category to every transaction that's currently uncategorized.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary
-            )
+            if (result != null) {
+                Text(result, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+            } else {
+                Text(
+                    "Let AI assign a category to every transaction that's currently uncategorized.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
             
             Button(

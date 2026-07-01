@@ -21,10 +21,13 @@ import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
+import com.summit.android.ui.theme.ThemeManager
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        ThemeManager.init(this)
         requestNotificationPermission()
         SpendingTodayManager.startOrUpdate(this)
 

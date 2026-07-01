@@ -82,7 +82,7 @@ fun SubscriptionsScreen(
         if (currentTier != SubscriptionTier.PREMIUM) {
             Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 LockedFeatureCard(
-                    feature = PremiumFeature.SMART_ALERTS, // TODO: Add SUBSCRIPTION_TRACKER to enum
+                    feature = PremiumFeature.SUBSCRIPTION_TRACKER,
                     onUpgrade = onUpgrade
                 )
             }

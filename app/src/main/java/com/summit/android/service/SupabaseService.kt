@@ -1,13 +1,18 @@
 package com.summit.android.service
 
-import io.github.jan_tennert.supabase.SupabaseClient
-import io.github.jan_tennert.supabase.createSupabaseClient
-import io.github.jan_tennert.supabase.gotrue.GoTrue
-import io.github.jan_tennert.supabase.gotrue.gotrue
-import io.github.jan_tennert.supabase.postgrest.Postgrest
-import io.github.jan_tennert.supabase.realtime.Realtime
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.gotrue.Auth
+import io.github.jan.supabase.gotrue.SessionStatus
+import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.realtime.Realtime
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import java.util.UUID
 
 object SupabaseService {
@@ -18,7 +23,7 @@ object SupabaseService {
         supabaseUrl = PROJECT_URL,
         supabaseKey = ANON_KEY
     ) {
-        install(GoTrue)
+        install(Auth)
         install(Postgrest)
         install(Realtime)
     }
@@ -32,6 +37,39 @@ object SupabaseService {
     private val _isAuthenticated = MutableStateFlow(false)
     val isAuthenticated: StateFlow<Boolean> = _isAuthenticated
 
-    // In a real app, you would observe auth state changes here
-    // For now, this is a skeleton for the service
+    private val scope = CoroutineScope(Dispatchers.Main)
+
+    suspend fun loadUser() {
+        try {
+            val user = client.auth.retrieveUserForCurrentSession()
+            _currentUserID.value = user.id?.let { UUID.fromString(it) }
+            _currentEmail.value = user.email
+            _isAuthenticated.value = true
+        } catch (_: Exception) {
+            // No session — leave state as-is.
+        }
+    }
+
+    init {
+        client.auth.sessionStatus
+            .onEach { status ->
+                println("SupabaseService: Auth status changed to $status")
+                when (status) {
+                    is SessionStatus.Authenticated -> {
+                        val user = status.session.user
+                        _currentUserID.value = user?.id?.let { UUID.fromString(it) }
+                        _currentEmail.value = user?.email
+                        _isAuthenticated.value = true
+                        println("SupabaseService: User authenticated: ${user?.email}")
+                    }
+                    else -> {
+                        _currentUserID.value = null
+                        _currentEmail.value = null
+                        _isAuthenticated.value = false
+                        println("SupabaseService: User not authenticated")
+                    }
+                }
+            }
+            .launchIn(scope)
+    }
 }

@@ -1,18 +1,24 @@
 package com.summit.android.service
 
-import io.github.jan_tennert.supabase.realtime.Realtime
-import io.github.jan_tennert.supabase.realtime.RealtimeChannel
-import io.github.jan_tennert.supabase.realtime.postgresChangeFlow
-import io.github.jan_tennert.supabase.realtime.realtime
+import android.content.Context
+import io.github.jan.supabase.realtime.PostgresAction
+import io.github.jan.supabase.realtime.RealtimeChannel
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.realtime
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import java.util.*
 
 object RealtimeService {
     private var channel: RealtimeChannel? = null
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var job: Job? = null
+    private var applicationContext: Context? = null
+    private var currentHouseholdID: UUID? = null
 
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected
@@ -24,27 +30,36 @@ object RealtimeService {
         "balance_snapshots"
     )
 
-    fun start(householdID: UUID) {
-        job?.cancel()
+    fun start(context: Context, householdID: UUID) {
+        if (currentHouseholdID == householdID && _isConnected.value) return
+        stop()
+        this.applicationContext = context.applicationContext
+        this.currentHouseholdID = householdID
         job = scope.launch {
-            val client = SupabaseService.client
-            channel = client.realtime.createChannel("household_${householdID.toString().lowercase()}")
-            
-            subscribedTables.forEach { table ->
-                val flow = channel!!.postgresChangeFlow<Any>(schema = "public") {
-                    this.table = table
-                    filter = "household_id=eq.${householdID.toString().lowercase()}"
+            try {
+                val ch = SupabaseService.client.channel("summit-household-${householdID.toString().lowercase()}")
+                val filter = "household_id=eq.${householdID.toString().lowercase()}"
+                for (table in subscribedTables) {
+                    ch.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
+                        this.table = table
+                        this.filter = filter
+                    }.onEach { handleEvent() }.launchIn(this)
+                    ch.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
+                        this.table = table
+                        this.filter = filter
+                    }.onEach { handleEvent() }.launchIn(this)
+                    ch.postgresChangeFlow<PostgresAction.Delete>(schema = "public") {
+                        this.table = table
+                        this.filter = filter
+                    }.onEach { handleEvent() }.launchIn(this)
                 }
-                
-                launch {
-                    flow.collect {
-                        handleEvent()
-                    }
-                }
+                ch.subscribe()
+                channel = ch
+                _isConnected.value = true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _isConnected.value = false
             }
-            
-            channel!!.subscribe()
-            _isConnected.value = true
         }
     }
 
@@ -53,8 +68,9 @@ object RealtimeService {
         debounceJob?.cancel()
         debounceJob = scope.launch {
             delay(1000)
-            // Trigger sync
-            // SyncService.syncAll(context) // We need a context here, might need to pass it or use a global one
+            applicationContext?.let {
+                SyncService.syncAll(it)
+            }
         }
     }
 
@@ -62,8 +78,9 @@ object RealtimeService {
         job?.cancel()
         debounceJob?.cancel()
         scope.launch {
-            channel?.unsubscribe()
+            try { channel?.unsubscribe() } catch (e: Exception) { /* ignore */ }
             channel = null
+            currentHouseholdID = null
             _isConnected.value = false
         }
     }

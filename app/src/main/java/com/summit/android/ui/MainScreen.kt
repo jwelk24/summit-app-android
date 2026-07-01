@@ -1,21 +1,23 @@
 package com.summit.android.ui
 
-import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.summit.android.service.SyncService
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.animation.*
-import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import com.summit.android.ui.budget.BudgetScreen
+import com.summit.android.ui.horizon.CashFlowForecastScreen
 import com.summit.android.ui.horizon.HorizonScreen
 import com.summit.android.ui.insights.AIInsightsScreen
 import com.summit.android.ui.navigation.Screen
@@ -23,6 +25,7 @@ import com.summit.android.ui.navigation.bottomNavItems
 import com.summit.android.ui.networth.NetWorthScreen
 import com.summit.android.ui.networth.PlaidConnectionsScreen
 import com.summit.android.ui.reports.ReportsScreen
+import com.summit.android.ui.settings.CustomizeAppearanceScreen
 import com.summit.android.ui.transactions.TransactionsScreen
 import com.summit.android.ui.transactions.ReceiptScannerScreen
 import com.summit.android.ui.transactions.editor.TransactionEditorScreen
@@ -42,21 +45,13 @@ fun MainScreen() {
         bottomBar = {
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentDestination = navBackStackEntry?.destination
-            // Hide bottom bar on editor, paywall, and rules
             val hideBottomBar = currentDestination?.route?.startsWith(Screen.TransactionEditor.route) == true || 
                                currentDestination?.route == Screen.Paywall.route ||
                                currentDestination?.route?.startsWith(Screen.CategoryRules.route) == true ||
                                currentDestination?.route?.startsWith(Screen.RuleEditor.route) == true
             if (!hideBottomBar) {
                 Column {
-                    val isSyncing by SyncService.isSyncing.collectAsStateWithLifecycle()
-                    AnimatedVisibility(
-                        visible = isSyncing,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
+                    SyncIndicator()
                     NavigationBar {
                         bottomNavItems.forEach { screen ->
                             NavigationBarItem(
@@ -92,7 +87,8 @@ fun MainScreen() {
                 BudgetScreen(
                     onManageRules = { navController.navigate(Screen.CategoryRules.route) },
                     onManageAlerts = { navController.navigate(Screen.SmartAlerts.route) },
-                    onManageSubscriptions = { navController.navigate(Screen.Subscriptions.route) }
+                    onManageSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
+                    onCustomizeAppearance = { navController.navigate(Screen.CustomizeAppearance.route) }
                 )
             }
             composable(Screen.Transactions.route) { 
@@ -110,9 +106,18 @@ fun MainScreen() {
                 NetWorthScreen(onManageConnections = { navController.navigate(Screen.PlaidConnections.route) }) 
             }
             composable(Screen.PlaidConnections.route) {
-                PlaidConnectionsScreen(onBack = { navController.popBackStack() })
+                PlaidConnectionsScreen(
+                    onBack = { navController.popBackStack() },
+                    onAddBank = { /* TODO */ },
+                    onUpgrade = { navController.navigate(Screen.Paywall.route) }
+                )
             }
-            composable(Screen.Horizon.route) { HorizonScreen() }
+            composable(Screen.Horizon.route) { 
+                HorizonScreen(onShowForecast = { navController.navigate("forecast") }) 
+            }
+            composable("forecast") {
+                CashFlowForecastScreen(onBack = { navController.popBackStack() })
+            }
             composable(Screen.Reports.route) { ReportsScreen() }
             composable(Screen.Insights.route) { 
                 AIInsightsScreen(onUpgrade = { navController.navigate(Screen.Paywall.route) }) 
@@ -136,6 +141,9 @@ fun MainScreen() {
                     onBack = { navController.popBackStack() },
                     onUpgrade = { navController.navigate(Screen.Paywall.route) }
                 )
+            }
+            composable(Screen.CustomizeAppearance.route) {
+                CustomizeAppearanceScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "${Screen.RuleEditor.route}?ruleId={ruleId}&seedMerchant={seedMerchant}&seedCategoryId={seedCategoryId}",
@@ -180,5 +188,17 @@ fun MainScreen() {
                 )
             }
         }
+    }
+}
+
+@Composable
+fun SyncIndicator() {
+    val isSyncing by SyncService.isSyncing.collectAsStateWithLifecycle()
+    AnimatedVisibility(
+        visible = isSyncing,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut()
+    ) {
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
     }
 }

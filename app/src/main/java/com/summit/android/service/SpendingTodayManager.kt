@@ -52,7 +52,7 @@ object SpendingTodayManager {
         val month = calendar.get(Calendar.MONTH) + 1
         val budgetMonth = db.budgetDao().getMonth(year, month)
         
-        val allocations = budgetMonth?.let { db.budgetDao().getAllocations(it.id).first() } ?: emptyList()
+        val allocations = budgetMonth?.let { db.budgetDao().getAllocationsForMonth(it.id).first() } ?: emptyList()
         val totalAssigned = allocations.fold(BigDecimal.ZERO) { acc, alloc -> acc.add(alloc.amount) }
         
         val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
@@ -98,12 +98,10 @@ object SpendingTodayManager {
                 else -> 0xFF10B981.toInt()           // Green
             }
             setTextColor(R.id.tv_spent_today, color)
-            // Note: setProgressBar progressTint is not directly available via RemoteViews in all versions, 
-            // but we set it in XML.
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Use peak icon
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setCustomContentView(remoteViews)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setOngoing(true)
@@ -111,6 +109,11 @@ object SpendingTodayManager {
             .build()
 
         notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    fun endAll(context: Context) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancel(NOTIFICATION_ID)
     }
 
     private data class DayStats(

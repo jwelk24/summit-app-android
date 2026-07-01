@@ -27,4 +27,7 @@ interface PlaidLinkDao {
 
     @Query("SELECT * FROM plaid_account_links")
     suspend fun getAllAccountLinks(): List<PlaidAccountLinkEntity>
+
+    @Query("SELECT * FROM plaid_transaction_links")
+    suspend fun getAllTransactionLinks(): List<PlaidTransactionLinkEntity>
 }

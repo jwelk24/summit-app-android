@@ -7,15 +7,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.summit.android.data.entity.ScheduledItemEntity
+import com.summit.android.data.model.ScheduledKind
 import com.summit.android.ui.horizon.viewmodel.HorizonUiState
 import com.summit.android.ui.horizon.viewmodel.HorizonViewModel
 import com.summit.android.ui.horizon.viewmodel.ProjectionPoint
@@ -26,18 +25,32 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HorizonScreen(viewModel: HorizonViewModel = viewModel()) {
+fun HorizonScreen(
+    onShowForecast: () -> Unit,
+    viewModel: HorizonViewModel = viewModel()
+) {
     val uiState by viewModel.uiState.collectAsState()
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    if (showAddDialog) {
+        AddScheduledItemDialog(
+            onDismiss = { showAddDialog = false },
+            onAdd = { item ->
+                viewModel.addScheduledItem(item)
+                showAddDialog = false
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Horizon") },
                 actions = {
-                    IconButton(onClick = { /* TODO: Forecast */ }) {
+                    IconButton(onClick = onShowForecast) {
                         Icon(Icons.Default.ShowChart, contentDescription = "Forecast")
                     }
-                    IconButton(onClick = { /* TODO: Add Scheduled */ }) {
+                    IconButton(onClick = { showAddDialog = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Add Scheduled")
                     }
                 }
@@ -58,7 +71,7 @@ fun HorizonScreen(viewModel: HorizonViewModel = viewModel()) {
                     SectionHeader("Pending (Past Due)")
                 }
                 items(uiState.pendingItems) { item ->
-                    PendingItemRow(item)
+                    PendingItemRow(item, onPost = { viewModel.postItem(it) })
                 }
             }
 
@@ -113,7 +126,7 @@ fun SummaryRow(label: String, amount: BigDecimal, isBold: Boolean = false) {
 }
 
 @Composable
-fun PendingItemRow(item: ScheduledItemEntity) {
+fun PendingItemRow(item: ScheduledItemEntity, onPost: (ScheduledItemEntity) -> Unit) {
     ListItem(
         headlineContent = { Text(item.name) },
         supportingContent = {
@@ -123,11 +136,72 @@ fun PendingItemRow(item: ScheduledItemEntity) {
         trailingContent = {
             Column(horizontalAlignment = Alignment.End) {
                 Text(formatCurrency(item.amount.toDouble()), style = MaterialTheme.typography.bodyLarge)
-                Button(onClick = { /* TODO: Post Item */ }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp), modifier = Modifier.height(32.dp)) {
+                Button(onClick = { onPost(item) }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp), modifier = Modifier.height(32.dp)) {
                     Text("Post", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
+    )
+}
+
+@Composable
+fun AddScheduledItemDialog(
+    onDismiss: () -> Unit,
+    onAdd: (ScheduledItemEntity) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var selectedKind by remember { mutableStateOf(ScheduledKind.BILL) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Scheduled Item") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("Amount") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(ScheduledKind.BILL, ScheduledKind.SUBSCRIPTION, ScheduledKind.PAYCHECK).forEach { kind ->
+                        FilterChip(
+                            selected = selectedKind == kind,
+                            onClick = { selectedKind = kind },
+                            label = { Text(kind.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val parsedAmount = amount.toBigDecimalOrNull() ?: return@TextButton
+                    val signedAmount = if (selectedKind == ScheduledKind.PAYCHECK) parsedAmount else parsedAmount.negate()
+                    onAdd(
+                        ScheduledItemEntity(
+                            name = name.trim(),
+                            amount = signedAmount,
+                            kind = selectedKind,
+                            nextDate = Date(),
+                            intervalDays = 30
+                        )
+                    )
+                },
+                enabled = name.isNotBlank() && amount.isNotBlank()
+            ) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 

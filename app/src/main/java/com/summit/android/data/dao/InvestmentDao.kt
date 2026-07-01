@@ -22,4 +22,10 @@ interface InvestmentDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: InvestmentTransactionEntity)
+
+    @Query("SELECT * FROM investment_holdings")
+    suspend fun getAllHoldingsList(): List<InvestmentHoldingEntity>
+
+    @Query("SELECT * FROM investment_transactions ORDER BY date DESC")
+    suspend fun getAllTransactionsList(): List<InvestmentTransactionEntity>
 }

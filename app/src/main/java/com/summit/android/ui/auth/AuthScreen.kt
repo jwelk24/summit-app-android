@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -18,10 +19,9 @@ import com.summit.android.service.HouseholdService
 import com.summit.android.service.HouseholdRole
 
 import com.summit.android.service.RealtimeService
-import java.util.UUID
-
 import com.summit.android.billing.PremiumManager
 import com.summit.android.billing.SubscriptionTier
+import com.summit.android.billing.PremiumFeature
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +38,7 @@ fun AuthScreen(
     val currentTier by PremiumManager.currentTier.collectAsStateWithLifecycle()
     
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     LaunchedEffect(isAuthenticated) {
         if (isAuthenticated) {
@@ -49,7 +50,7 @@ fun AuthScreen(
 
     LaunchedEffect(household) {
         household?.id?.let {
-            RealtimeService.start(UUID.fromString(it))
+            RealtimeService.start(context, it)
         }
     }
 
@@ -80,8 +81,7 @@ fun AuthScreen(
                         InviteMemberCard()
                     } else {
                         LockedFeatureCard(
-                            title = "Invite a member",
-                            message = "Household sharing is a Premium feature.",
+                            feature = PremiumFeature.HOUSEHOLD,
                             onUpgrade = onUpgrade
                         )
                     }
@@ -92,8 +92,7 @@ fun AuthScreen(
                     JoinHouseholdCard()
                 } else {
                     LockedFeatureCard(
-                        title = "Join a household",
-                        message = "Collaborating with others requires Premium.",
+                        feature = PremiumFeature.HOUSEHOLD,
                         onUpgrade = onUpgrade
                     )
                 }
@@ -179,8 +178,11 @@ fun InviteMemberCard() {
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isBusy
             ) {
-                if (isBusy) CircularProgressIndicator(size = 24.dp)
-                else Text(if (generatedCode == null) "Generate Invite Code" else "Generate New Code")
+                if (isBusy) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                } else {
+                    Text(if (generatedCode == null) "Generate Invite Code" else "Generate New Code")
+                }
             }
         }
     }
@@ -220,8 +222,11 @@ fun JoinHouseholdCard() {
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isBusy && inviteCode.isNotBlank()
             ) {
-                if (isBusy) CircularProgressIndicator(size = 24.dp)
-                else Text("Join")
+                if (isBusy) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Join")
+                }
             }
         }
     }
@@ -299,7 +304,7 @@ fun SignInForm() {
             enabled = !isWorking && email.isNotEmpty() && password.length >= 6
         ) {
             if (isWorking) {
-                CircularProgressIndicator(size = 24.dp, color = MaterialTheme.colorScheme.onPrimary)
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
             } else {
                 Text(if (mode == AuthMode.SIGN_IN) "Sign In" else "Create Account")
             }
@@ -310,12 +315,12 @@ fun SignInForm() {
 enum class AuthMode { SIGN_IN, SIGN_UP }
 
 @Composable
-fun LockedFeatureCard(title: String, message: String, onUpgrade: () -> Unit) {
+fun LockedFeatureCard(feature: PremiumFeature, onUpgrade: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(feature.title, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+            Text("Requires a Premium subscription.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = onUpgrade, modifier = Modifier.fillMaxWidth()) {
                 Text("View Plans")

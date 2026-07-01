@@ -54,7 +54,7 @@ data class SummitSnapshot(
             val month = calendar.get(Calendar.MONTH) + 1
 
             val budgetMonth = db.budgetDao().getMonth(year, month)
-            val allocations = budgetMonth?.let { db.budgetDao().getAllocations(it.id).first() } ?: emptyList()
+            val allocations = budgetMonth?.let { db.budgetDao().getAllocationsForMonth(it.id).first() } ?: emptyList()
 
             var totalAssets = BigDecimal.ZERO
             var totalLiabilities = BigDecimal.ZERO

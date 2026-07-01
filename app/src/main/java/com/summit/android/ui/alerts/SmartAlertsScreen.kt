@@ -1,36 +1,24 @@
 package com.summit.android.ui.alerts
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.summit.android.billing.PremiumFeature
-import com.summit.android.billing.PremiumManager
-import com.summit.android.billing.SubscriptionTier
-import com.summit.android.service.SmartAlertsService
-import com.summit.android.ui.auth.LockedFeatureCard
-import java.math.BigDecimal
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SmartAlertsScreen(
     onBack: () -> Unit,
-    onUpgrade: () -> Unit
+    onUpgrade: () -> Unit,
+    viewModel: SmartAlertsViewModel = viewModel()
 ) {
-    val context = LocalContext.current
-    val currentTier by PremiumManager.currentTier.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -38,80 +26,114 @@ fun SmartAlertsScreen(
                 title = { Text("Smart Alerts") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         }
     ) { padding ->
-        if (currentTier != SubscriptionTier.PREMIUM) {
-            Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                LockedFeatureCard(
-                    feature = PremiumFeature.SMART_ALERTS,
-                    onUpgrade = onUpgrade
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
+            // Bill reminders — all tiers
+            item {
+                SectionHeader("Bill Reminders")
+                AlertSettingRow(
+                    title = "Remind me before bills are due",
+                    message = "Get a heads-up before upcoming bills and subscriptions.",
+                    enabled = uiState.billRemindersEnabled,
+                    onToggle = { viewModel.toggleBillReminders() }
                 )
+                if (uiState.billRemindersEnabled) {
+                    LeadDaysPicker(
+                        selected = uiState.billLeadDays,
+                        onSelect = { viewModel.setBillLeadDays(it) }
+                    )
+                }
+                HorizontalDivider()
             }
-        } else {
-            Column(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
-            ) {
-                BudgetThresholdSection(context)
-                Spacer(modifier = Modifier.height(24.dp))
-                UnusualChargesSection(context)
-                Spacer(modifier = Modifier.height(24.dp))
-                TestSection(context)
-            }
-        }
-    }
-}
 
-@Composable
-fun BudgetThresholdSection(context: android.content.Context) {
-    var enabled by remember { mutableStateOf(SmartAlertsService.isBudgetEnabled(context)) }
-    var threshold by remember { mutableStateOf(SmartAlertsService.getBudgetThreshold(context)) }
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Budget Thresholds", style = MaterialTheme.typography.titleMedium)
-                Switch(
-                    checked = enabled,
-                    onCheckedChange = {
-                        enabled = it
-                        SmartAlertsService.setBudgetEnabled(context, it)
-                    }
+            // Low-balance warning — all tiers
+            item {
+                SectionHeader("Low-Balance Warning")
+                AlertSettingRow(
+                    title = "Warn me before my balance runs low",
+                    message = "Projects checking & savings over 30 days and alerts if it dips below your cushion.",
+                    enabled = uiState.lowBalanceEnabled,
+                    onToggle = { viewModel.toggleLowBalance() }
                 )
+                HorizontalDivider()
             }
-            Text(
-                "Get notified when spending in a category crosses your chosen percentage of assigned budget.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary
-            )
-            
-            if (enabled) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Alert near category limit at:", style = MaterialTheme.typography.labelMedium)
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    listOf(50, 80, 100).forEachIndexed { index, value ->
-                        SegmentedButton(
-                            selected = threshold == value,
-                            onClick = {
-                                threshold = value
-                                SmartAlertsService.setBudgetThreshold(context, value)
-                            },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = 3)
-                        ) {
-                            Text("$value%")
+
+            if (!uiState.isPremium) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("More Alerts", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Upgrade to Premium for category-overspend warnings, large/new-merchant charge alerts, and subscription price change detection.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Button(onClick = onUpgrade) { Text("View Plans") }
                         }
                     }
+                }
+            } else {
+                // Budget thresholds — Premium
+                item {
+                    SectionHeader("Budget Thresholds")
+                    AlertSettingRow(
+                        title = "Alert near category limit",
+                        message = "One notification per category per month when spending crosses your threshold.",
+                        enabled = uiState.budgetThresholdsEnabled,
+                        onToggle = { viewModel.toggleBudgetThresholds() }
+                    )
+                    HorizontalDivider()
+                }
+
+                // Unusual charges — Premium
+                item {
+                    SectionHeader("Unusual Charges")
+                    AlertSettingRow(
+                        title = "Alert on large or new-merchant charges",
+                        message = "Flags outflows over your threshold, especially from new merchants.",
+                        enabled = uiState.unusualActivityEnabled,
+                        onToggle = { viewModel.toggleUnusualActivity() }
+                    )
+                    HorizontalDivider()
+                }
+
+                // Price changes — Premium
+                item {
+                    SectionHeader("Subscription Price Watch")
+                    AlertSettingRow(
+                        title = "Alert when a subscription price changes",
+                        message = "Detects when a recurring charge goes up or down.",
+                        enabled = uiState.priceChangeEnabled,
+                        onToggle = { viewModel.togglePriceChange() }
+                    )
+                    HorizontalDivider()
+                }
+            }
+
+            // Test notification
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = { viewModel.sendTestNotification() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Text("Send Test Notification")
                 }
             }
         }
@@ -119,66 +141,45 @@ fun BudgetThresholdSection(context: android.content.Context) {
 }
 
 @Composable
-fun UnusualChargesSection(context: android.content.Context) {
-    var enabled by remember { mutableStateOf(SmartAlertsService.isUnusualEnabled(context)) }
-    var amount by remember { mutableStateOf(SmartAlertsService.getUnusualAmountThreshold(context).toString()) }
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Unusual Charges", style = MaterialTheme.typography.titleMedium)
-                Switch(
-                    checked = enabled,
-                    onCheckedChange = {
-                        enabled = it
-                        SmartAlertsService.setUnusualEnabled(context, it)
-                    }
-                )
-            }
-            Text(
-                "Get notified when an outflow exceeds the threshold, or is from a merchant you've never seen before.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary
-            )
-
-            if (enabled) {
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = {
-                        amount = it
-                        val decimal = it.toBigDecimalOrNull()
-                        if (decimal != null) {
-                            SmartAlertsService.setUnusualAmountThreshold(context, decimal)
-                        }
-                    },
-                    label = { Text("Amount Threshold") },
-                    prefix = { Text("$") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-    }
+fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp)
+    )
 }
 
 @Composable
-fun TestSection(context: android.content.Context) {
-    Button(
-        onClick = { SmartAlertsService.sendTestNotification(context) },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("Send Test Notification")
-    }
-    Text(
-        "Alerts run automatically after each sync. Use this to confirm notifications are working.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.secondary,
-        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        modifier = Modifier.padding(top = 8.dp)
+fun AlertSettingRow(
+    title: String,
+    message: String,
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(message) },
+        trailingContent = {
+            Switch(checked = enabled, onCheckedChange = onToggle)
+        }
     )
+}
+
+@Composable
+fun LeadDaysPicker(selected: Int, onSelect: (Int) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        listOf(0 to "Same day", 1 to "1 day", 3 to "3 days", 7 to "1 week").forEach { (days, label) ->
+            FilterChip(
+                selected = selected == days,
+                onClick = { onSelect(days) },
+                label = { Text(label) }
+            )
+        }
+    }
 }

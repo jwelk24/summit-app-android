@@ -18,4 +18,7 @@ interface LiabilityDao {
 
     @Update
     suspend fun update(liability: LiabilityEntity)
+
+    @Query("SELECT * FROM liabilities")
+    suspend fun getAllList(): List<LiabilityEntity>
 }

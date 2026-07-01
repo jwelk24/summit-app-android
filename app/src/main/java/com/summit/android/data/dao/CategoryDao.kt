@@ -19,4 +19,16 @@ interface CategoryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategory(category: CategoryEntity)
+
+    @Query("SELECT * FROM categories WHERE id = :id")
+    suspend fun getCategoryById(id: UUID): CategoryEntity?
+
+    @Query("SELECT * FROM category_groups ORDER BY sort ASC")
+    suspend fun getGroupsList(): List<CategoryGroupEntity>
+
+    @Query("SELECT * FROM categories ORDER BY sort ASC")
+    suspend fun getCategoriesList(): List<CategoryEntity>
+
+    @Delete
+    suspend fun deleteCategory(category: CategoryEntity)
 }

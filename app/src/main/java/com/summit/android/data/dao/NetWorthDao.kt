@@ -20,4 +20,10 @@ interface NetWorthDao {
 
     @Query("SELECT * FROM balance_snapshots ORDER BY date ASC")
     fun getAllSnapshots(): Flow<List<BalanceSnapshotEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSnapshot(snapshot: BalanceSnapshotEntity)
+
+    @Query("SELECT * FROM balance_snapshots")
+    suspend fun getAllSnapshotsList(): List<BalanceSnapshotEntity>
 }

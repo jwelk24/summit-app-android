@@ -9,9 +9,8 @@ import com.summit.android.data.AppDatabase
 import com.summit.android.data.entity.AccountEntity
 import com.summit.android.data.entity.CategoryEntity
 import com.summit.android.data.entity.TransactionEntity
-import com.summit.android.data.entity.TransactionSplitEntity
-import com.summit.android.service.ReceiptDraft
 import com.summit.android.service.ReceiptScanner
+import com.summit.android.service.ScannedReceipt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +18,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
-import java.text.SimpleDateFormat
 import java.util.*
 
 enum class ScanPhase { PICK_PHOTO, SCANNING, REVIEW }
@@ -36,8 +34,6 @@ class ReceiptScannerViewModel(application: Application) : AndroidViewModel(appli
         application,
         AppDatabase::class.java, "summit-db"
     ).build()
-    
-    private val scanner = ReceiptScanner(application)
 
     private val _phase = MutableStateFlow(ScanPhase.PICK_PHOTO)
     val phase: StateFlow<ScanPhase> = _phase
@@ -64,14 +60,9 @@ class ReceiptScannerViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch {
             _phase.value = ScanPhase.SCANNING
             try {
-                val draft = scanner.scan(bitmap)
-                if (draft != null) {
-                    applyDraft(draft)
-                    _phase.value = ScanPhase.REVIEW
-                } else {
-                    _phase.value = ScanPhase.PICK_PHOTO
-                    // Handle error
-                }
+                val result = ReceiptScanner.scan(bitmap)
+                applyDraft(result)
+                _phase.value = ScanPhase.REVIEW
             } catch (e: Exception) {
                 _phase.value = ScanPhase.PICK_PHOTO
                 // Handle error
@@ -79,17 +70,14 @@ class ReceiptScannerViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    private fun applyDraft(draft: ReceiptDraft) {
-        _merchant.value = draft.merchant
-        val df = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        _transactionDate.value = try { df.parse(draft.date) ?: Date() } catch (e: Exception) { Date() }
+    private fun applyDraft(draft: ScannedReceipt) {
+        _merchant.value = draft.merchant ?: ""
+        _transactionDate.value = draft.date ?: Date()
         
-        val items = draft.lineItems.map { 
-            LineItemDraft(name = it.name, amount = BigDecimal(it.amount), categoryId = null)
-        }.toMutableList()
-        
-        if (draft.tax > 0) items.add(LineItemDraft(name = "Tax", amount = BigDecimal(draft.tax), categoryId = null))
-        if (draft.tip > 0) items.add(LineItemDraft(name = "Tip", amount = BigDecimal(draft.tip), categoryId = null))
+        val items = mutableListOf<LineItemDraft>()
+        draft.amount?.let { amt ->
+            items.add(LineItemDraft(name = "Total", amount = amt, categoryId = null))
+        }
         
         _lineItems.value = items
         
@@ -115,9 +103,6 @@ class ReceiptScannerViewModel(application: Application) : AndroidViewModel(appli
                 memo = "Scanned Receipt"
             )
             db.transactionDao().insert(transaction)
-            
-            // In a real implementation, we'd also save the splits.
-            // TransactionSplitEntity(id, amount, memo, transactionId, categoryId)
             
             onSuccess()
         }

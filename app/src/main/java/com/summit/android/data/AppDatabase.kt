@@ -43,4 +43,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryRuleDao(): CategoryRuleDao
     abstract fun investmentDao(): InvestmentDao
     abstract fun liabilityDao(): LiabilityDao
+    abstract fun softDeleteTombstoneDao(): SoftDeleteTombstoneDao
 }
