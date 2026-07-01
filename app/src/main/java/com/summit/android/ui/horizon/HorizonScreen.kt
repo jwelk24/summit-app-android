@@ -194,7 +194,9 @@ fun AddScheduledItemDialog(
                             amount = signedAmount,
                             kind = selectedKind,
                             nextDate = Date(),
-                            intervalDays = 30
+                            intervalDays = 30,
+                            accountId = null,
+                            categoryId = null
                         )
                     )
                 },

@@ -57,8 +57,12 @@ data class PlaidTransaction(
     val account_id: String,
     val amount: Double,
     val date: String,
-    val name: String
+    val name: String,
+    val merchant_name: String? = null,
+    val pending: Boolean = false,
+    val personal_finance_category: PlaidPfc? = null
 )
+data class PlaidPfc(val primary: String?, val detailed: String?)
 data class RemovedTransaction(val transaction_id: String)
 
 // Holdings

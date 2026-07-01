@@ -5,7 +5,9 @@ import androidx.room.Room
 import com.summit.android.data.AppDatabase
 import com.summit.android.data.entity.*
 import com.summit.android.data.model.AccountType
+import com.summit.android.data.model.LiabilityKind
 import java.math.BigDecimal
+import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -372,7 +374,7 @@ class PlaidSyncService(context: Context) {
                     fees = tx.fees?.let { BigDecimal(it.toString()) },
                     quantity = tx.quantity?.let { BigDecimal(it.toString()) },
                     price = tx.price?.let { BigDecimal(it.toString()) },
-                    type = tx.type,
+                    type = tx.type ?: existing.type,
                     subtype = tx.subtype,
                     plaidSecurityId = tx.security_id,
                     tickerSymbol = security?.ticker_symbol,
@@ -393,7 +395,7 @@ class PlaidSyncService(context: Context) {
                 fees = tx.fees?.let { BigDecimal(it.toString()) },
                 quantity = tx.quantity?.let { BigDecimal(it.toString()) },
                 price = tx.price?.let { BigDecimal(it.toString()) },
-                type = tx.type,
+                type = tx.type ?: "unknown",
                 subtype = tx.subtype,
                 plaidSecurityId = tx.security_id,
                 tickerSymbol = security?.ticker_symbol,

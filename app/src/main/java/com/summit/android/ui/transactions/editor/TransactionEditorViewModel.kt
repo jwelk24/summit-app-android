@@ -110,6 +110,7 @@ class TransactionEditorViewModel(application: Application) : AndroidViewModel(ap
                 date = date,
                 accountId = accountId,
                 categoryId = finalCategoryId,
+                pfcPrimary = null,
                 memo = memo,
                 cleared = cleared,
                 flagColor = flagColor

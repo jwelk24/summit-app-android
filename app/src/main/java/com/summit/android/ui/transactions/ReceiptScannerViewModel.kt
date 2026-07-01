@@ -100,6 +100,7 @@ class ReceiptScannerViewModel(application: Application) : AndroidViewModel(appli
                 flagColor = null,
                 accountId = accountId,
                 categoryId = null,
+                pfcPrimary = null,
                 memo = "Scanned Receipt"
             )
             db.transactionDao().insert(transaction)

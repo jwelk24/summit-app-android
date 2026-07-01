@@ -9,6 +9,7 @@ import com.summit.android.data.model.GoalType
 import com.summit.android.data.model.ScheduledKind
 import kotlinx.coroutines.flow.first
 import java.math.BigDecimal
+import java.text.SimpleDateFormat
 import java.util.*
 
 class BudgetEngine(context: Context) {
@@ -52,8 +53,9 @@ class BudgetEngine(context: Context) {
         val allSplits = db.transactionDao().getAllSplits()
         val splitTotal = allSplits.filter { split ->
             if (split.categoryId != category.id) return@filter false
-            val parent = transactions.find { it.id == split.transactionId }
-                ?: db.transactionDao().getById(split.transactionId)
+            val txId = split.transactionId ?: return@filter false
+            val parent = transactions.find { it.id == txId }
+                ?: db.transactionDao().getById(txId)
                 ?: return@filter false
             calendar.time = parent.date
             calendar.get(Calendar.YEAR) == year && (calendar.get(Calendar.MONTH) + 1) == month
@@ -282,7 +284,8 @@ class BudgetEngine(context: Context) {
         }
         val sourceAllocs = db.budgetDao().getAllocationsForCategory(source.id)
         for (alloc in sourceAllocs) {
-            val existing = db.budgetDao().getAllocation(alloc.monthId, into.id)
+            val monthId = alloc.monthId ?: continue
+            val existing = db.budgetDao().getAllocation(monthId, into.id)
             if (existing != null) {
                 db.budgetDao().updateAllocation(existing.copy(amount = existing.amount.add(alloc.amount)))
             } else {
