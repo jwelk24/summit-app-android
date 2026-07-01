@@ -31,4 +31,7 @@ interface CategoryDao {
 
     @Delete
     suspend fun deleteCategory(category: CategoryEntity)
+
+    @Delete
+    suspend fun deleteGroup(group: CategoryGroupEntity)
 }

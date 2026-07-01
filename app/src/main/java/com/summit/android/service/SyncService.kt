@@ -264,6 +264,8 @@ object SyncService {
             val canWrite = HouseholdService.currentRole.value?.canWrite ?: false
 
             if (canWrite) {
+                deduplicateAccounts(db)
+                deduplicateCategoriesAndGroups(db)
                 pushAccounts(db, householdIdStr)
                 pushCategoryGroups(db, householdIdStr)
                 pushCategories(db, householdIdStr)
@@ -306,6 +308,103 @@ object SyncService {
             e.printStackTrace()
         } finally {
             _isSyncing.value = false
+        }
+    }
+
+    // MARK: - Deduplication (seed-collision fix)
+
+    /// Merges duplicate AccountEntity records created when a fresh-install seed
+    /// collides with the household's existing accounts. Plaid-linked accounts are
+    /// keyed by plaidAccountId; manual accounts by name+type. Keeps the smallest-UUID
+    /// survivor, re-points all children, then tombstones + deletes the rest.
+    private suspend fun deduplicateAccounts(db: AppDatabase) {
+        val accounts = db.accountDao().getAll().first()
+        if (accounts.size <= 1) return
+
+        val links = db.plaidLinkDao().getAllAccountLinks()
+        val plaidIdByAccount = links.associate { it.accountModelId to it.plaidAccountId }
+
+        val byKey = accounts.groupBy { acct ->
+            val plaidId = plaidIdByAccount[acct.id]
+            if (plaidId != null) "plaid|$plaidId" else "manual|${acct.name}|${acct.type.name}"
+        }
+        if (byKey.none { it.value.size > 1 }) return
+
+        val allTransactions = db.transactionDao().getAll().first()
+        val allSnapshots = db.netWorthDao().getAllSnapshotsList()
+
+        for ((_, dupes) in byKey) {
+            if (dupes.size <= 1) continue
+            val sorted = dupes.sortedBy { it.id.toString() }
+            val survivor = sorted[0]
+            for (dup in sorted.drop(1)) {
+                val dupId = dup.id
+                // Re-point transactions
+                for (tx in allTransactions.filter { it.accountId == dupId }) {
+                    db.transactionDao().update(tx.copy(accountId = survivor.id))
+                }
+                // Re-point balance snapshots (REPLACE by PK, then CASCADE on dup delete won't fire)
+                for (snap in allSnapshots.filter { it.accountId == dupId }) {
+                    db.netWorthDao().insertSnapshot(snap.copy(accountId = survivor.id))
+                }
+                // Scheduled items use SET_NULL on account delete, no re-pointing needed
+                // Re-point plaid account links
+                for (link in links.filter { it.accountModelId == dupId }) {
+                    db.plaidLinkDao().insertAccountLink(link.copy(accountModelId = survivor.id))
+                }
+                db.softDeleteTombstoneDao().insert(SoftDeleteTombstoneEntity(table = "accounts", recordID = dupId))
+                db.accountDao().delete(dup)
+            }
+        }
+    }
+
+    /// Merges duplicate CategoryGroupEntity records (by name) and CategoryEntity
+    /// records (by group+name) from fresh-install seeds. Keeps the smallest-UUID
+    /// survivor, re-points children, then tombstones + deletes duplicates.
+    private suspend fun deduplicateCategoriesAndGroups(db: AppDatabase) {
+        // Step 1: dedupe groups by name
+        val groups = db.categoryDao().getGroupsList()
+        val groupsByName = groups.groupBy { it.name }
+        val groupRemap = mutableMapOf<UUID, UUID>() // dup.id -> survivor.id
+        for ((_, dupes) in groupsByName) {
+            if (dupes.size <= 1) continue
+            val sorted = dupes.sortedBy { it.id.toString() }
+            val survivor = sorted[0]
+            for (dup in sorted.drop(1)) {
+                groupRemap[dup.id] = survivor.id
+                db.softDeleteTombstoneDao().insert(SoftDeleteTombstoneEntity(table = "category_groups", recordID = dup.id))
+                db.categoryDao().deleteGroup(dup)
+            }
+        }
+
+        // Step 2: re-point categories whose group was merged, then dedupe by (groupId, name)
+        val allCategories = db.categoryDao().getCategoriesList()
+        for (cat in allCategories) {
+            val newGroupId = groupRemap[cat.groupId] ?: continue
+            db.categoryDao().insertCategory(cat.copy(groupId = newGroupId))
+        }
+
+        val refreshedCats = db.categoryDao().getCategoriesList()
+        val catsByKey = refreshedCats.groupBy { cat -> "${cat.groupId}|${cat.name}" }
+        for ((_, dupes) in catsByKey) {
+            if (dupes.size <= 1) continue
+            val sorted = dupes.sortedBy { it.id.toString() }
+            val survivor = sorted[0]
+            for (dup in sorted.drop(1)) {
+                val dupId = dup.id
+                // Re-point transactions
+                val txns = db.transactionDao().getAll().first()
+                for (tx in txns.filter { it.categoryId == dupId }) {
+                    db.transactionDao().update(tx.copy(categoryId = survivor.id))
+                }
+                // Re-point splits
+                val splits = db.transactionDao().getAllSplits()
+                for (split in splits.filter { it.categoryId == dupId }) {
+                    db.transactionDao().updateSplit(split.copy(categoryId = survivor.id))
+                }
+                db.softDeleteTombstoneDao().insert(SoftDeleteTombstoneEntity(table = "categories", recordID = dupId))
+                db.categoryDao().deleteCategory(dup)
+            }
         }
     }
 
