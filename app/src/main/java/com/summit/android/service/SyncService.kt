@@ -66,6 +66,8 @@ private data class TransactionRow(
     @SerialName("flag_color") val flagColor: String?,
     @SerialName("pfc_primary") val pfcPrimary: String? = null,
     val tags: String = "",
+    @SerialName("awaiting_refund") val awaitingRefund: Boolean = false,
+    @SerialName("refunds_transaction_id") val refundsTransactionId: String? = null,
     @SerialName("deleted_at") val deletedAt: String? = null,
 )
 
@@ -262,7 +264,7 @@ object SyncService {
         val household = HouseholdService.currentHousehold.value ?: return
         _isSyncing.value = true
         try {
-            val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2).build()
+            val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
             val householdIdStr = household.id.toString().lowercase()
             val canWrite = HouseholdService.currentRole.value?.canWrite ?: false
 
@@ -599,7 +601,7 @@ object SyncService {
 
     private suspend fun pushTransactions(db: AppDatabase, householdId: String) {
         val rows = db.transactionDao().getAll().first().map { t ->
-            TransactionRow(t.id.toString(), householdId, t.accountId?.toString(), t.categoryId?.toString(), df.format(t.date), t.amount.toDouble(), t.merchant, t.memo, t.cleared, t.flagColor, t.pfcPrimary, t.tags)
+            TransactionRow(t.id.toString(), householdId, t.accountId?.toString(), t.categoryId?.toString(), df.format(t.date), t.amount.toDouble(), t.merchant, t.memo, t.cleared, t.flagColor, t.pfcPrimary, t.tags, t.awaitingRefund, t.refundsTransactionId?.toString())
         }
         if (rows.isNotEmpty()) SupabaseService.client.postgrest["transactions"].upsert(rows)
     }
@@ -618,7 +620,8 @@ object SyncService {
             val accId = row.accountId?.let { UUID.fromString(it) }
             val catId = row.categoryId?.let { UUID.fromString(it) }
             val date = try { df.parse(row.date) ?: Date() } catch (e: Exception) { Date() }
-            val entity = TransactionEntity(txId, date, BigDecimal.valueOf(row.amount), row.merchant, row.memo, row.cleared, row.flagColor, row.pfcPrimary, accId, catId, row.tags)
+            val refundsTxId = row.refundsTransactionId?.let { UUID.fromString(it) }
+            val entity = TransactionEntity(txId, date, BigDecimal.valueOf(row.amount), row.merchant, row.memo, row.cleared, row.flagColor, row.pfcPrimary, accId, catId, row.tags, row.awaitingRefund, refundsTxId)
             db.transactionDao().insert(entity)
         }
     }

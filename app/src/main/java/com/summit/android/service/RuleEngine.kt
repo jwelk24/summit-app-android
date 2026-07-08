@@ -111,7 +111,7 @@ object RuleEngine {
         if (!rulesEnabled()) return 0
         val db = Room.databaseBuilder(
             context.applicationContext, AppDatabase::class.java, "summit-db"
-        ).addMigrations(AppDatabase.MIGRATION_1_2).build()
+        ).addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
         val rules = db.categoryRuleDao().getEnabledRules()
         val transactions = db.transactionDao().getAll().first()
         var hits = 0

@@ -29,7 +29,7 @@ import com.summit.android.data.entity.*
         PlaidTransactionLinkEntity::class,
         CategoryRuleEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -53,6 +53,13 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE transactions ADD COLUMN tags TEXT NOT NULL DEFAULT ''")
                 database.execSQL("ALTER TABLE category_rules ADD COLUMN renameTo TEXT")
                 database.execSQL("ALTER TABLE category_rules ADD COLUMN addTags TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE transactions ADD COLUMN awaitingRefund INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE transactions ADD COLUMN refundsTransactionId TEXT")
             }
         }
     }
