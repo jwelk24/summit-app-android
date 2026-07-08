@@ -10,9 +10,12 @@ import com.summit.android.data.AppDatabase
 import com.summit.android.data.entity.AccountEntity
 import com.summit.android.data.entity.BalanceSnapshotEntity
 import com.summit.android.data.entity.InvestmentHoldingEntity
+import com.summit.android.service.NetWorthMilestone
+import com.summit.android.service.NetWorthProjectorService
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.util.*
 
 
@@ -31,7 +34,8 @@ data class NetWorthUiState(
     val holdings: List<InvestmentHoldingEntity> = emptyList(),
     val timeRange: NetWorthTimeRange = NetWorthTimeRange.MONTH_3,
     val chartPoints: List<BigDecimal> = emptyList(),
-    val currentTier: SubscriptionTier = SubscriptionTier.NONE
+    val currentTier: SubscriptionTier = SubscriptionTier.NONE,
+    val milestone: NetWorthMilestone? = null
 )
 
 class NetWorthViewModel(application: Application) : AndroidViewModel(application) {
@@ -79,14 +83,25 @@ class NetWorthViewModel(application: Application) : AndroidViewModel(application
             dayAssets.subtract(dayLiabs)
         }
 
+        val netWorth = totalAssets.subtract(totalLiabs)
+        // Estimate monthly change from the last 30 days of chart points
+        val monthlyChange = if (chartPoints.size >= 2) {
+            val recent = chartPoints.takeLast(30)
+            recent.last().subtract(recent.first()).divide(BigDecimal(recent.size).max(BigDecimal.ONE), 2, RoundingMode.HALF_UP)
+        } else BigDecimal.ZERO
+        val milestone = if (netWorth > BigDecimal.ZERO || monthlyChange > BigDecimal.ZERO)
+            NetWorthProjectorService.project(netWorth, monthlyChange)
+        else null
+
         NetWorthUiState(
-            netWorth = totalAssets.subtract(totalLiabs),
+            netWorth = netWorth,
             assets = assets,
             liabilities = liabilities,
             holdings = holdings,
             timeRange = range,
             chartPoints = chartPoints,
-            currentTier = tier
+            currentTier = tier,
+            milestone = milestone
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), NetWorthUiState())
 

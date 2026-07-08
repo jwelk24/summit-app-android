@@ -23,6 +23,9 @@ fun AIInsightsScreen(
     onWeeklyReview: () -> Unit,
     onWrapped: () -> Unit,
     onChallenges: () -> Unit,
+    onCoach: () -> Unit = {},
+    onSafeToSpend: () -> Unit = {},
+    onFinancialHealth: () -> Unit = {},
     viewModel: AIInsightsViewModel = viewModel()
 ) {
     val digest by viewModel.digest.collectAsState()
@@ -44,7 +47,10 @@ fun AIInsightsScreen(
                     CheckInsSection(
                         onWeeklyReview = onWeeklyReview,
                         onWrapped = onWrapped,
-                        onChallenges = onChallenges
+                        onChallenges = onChallenges,
+                        onCoach = onCoach,
+                        onSafeToSpend = onSafeToSpend,
+                        onFinancialHealth = onFinancialHealth
                     )
                 }
                 item {
@@ -74,7 +80,10 @@ fun AIInsightsScreen(
                     CheckInsSection(
                         onWeeklyReview = onWeeklyReview,
                         onWrapped = onWrapped,
-                        onChallenges = onChallenges
+                        onChallenges = onChallenges,
+                        onCoach = onCoach,
+                        onSafeToSpend = onSafeToSpend,
+                        onFinancialHealth = onFinancialHealth
                     )
                 }
 
@@ -194,7 +203,10 @@ fun SmartCategorizeCard(
 fun CheckInsSection(
     onWeeklyReview: () -> Unit,
     onWrapped: () -> Unit,
-    onChallenges: () -> Unit
+    onChallenges: () -> Unit,
+    onCoach: () -> Unit = {},
+    onSafeToSpend: () -> Unit = {},
+    onFinancialHealth: () -> Unit = {}
 ) {
     val wins = ChallengeStore.completedIds().size
 
@@ -232,6 +244,27 @@ fun CheckInsSection(
                 label = "Challenges",
                 badge = if (wins > 0) "$wins" else null,
                 onClick = onChallenges
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+            CheckInRow(
+                icon = Icons.Default.Psychology,
+                label = "Financial Coach",
+                badge = null,
+                onClick = onCoach
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+            CheckInRow(
+                icon = Icons.Default.AttachMoney,
+                label = "Safe to Spend",
+                badge = null,
+                onClick = onSafeToSpend
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+            CheckInRow(
+                icon = Icons.Default.Favorite,
+                label = "Financial Health",
+                badge = null,
+                onClick = onFinancialHealth
             )
 
             Text(

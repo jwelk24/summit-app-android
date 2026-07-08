@@ -182,7 +182,7 @@ fun BillCalendarScreen(onBack: () -> Unit) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(occ.item.name, style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                formatCurrency(occ.item.amount.abs()),
+                                formatCurrency(occ.item.amount.abs().toDouble()),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = if (occ.isIncome) MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.error

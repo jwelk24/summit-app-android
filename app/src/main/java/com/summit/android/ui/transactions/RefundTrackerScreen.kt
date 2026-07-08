@@ -36,7 +36,7 @@ class RefundTrackerViewModel(application: Application) : AndroidViewModel(applic
         .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
 
     val uiState: StateFlow<RefundTrackerUiState> = db.transactionDao().getAll()
-        .map { all -> buildState(all) }
+        .map { all: List<TransactionEntity> -> buildState(all) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), RefundTrackerUiState())
 
     private fun buildState(all: List<TransactionEntity>): RefundTrackerUiState {
@@ -65,17 +65,20 @@ class RefundTrackerViewModel(application: Application) : AndroidViewModel(applic
 
     fun linkRefund(expenseId: UUID, refundId: UUID) {
         viewModelScope.launch {
-            val refund = db.transactionDao().getAll().first().find { it.id == refundId } ?: return@launch
+            val all: List<TransactionEntity> = db.transactionDao().getAll().first()
+            val refund = all.find { tx -> tx.id == refundId } ?: return@launch
             db.transactionDao().insert(refund.copy(refundsTransactionId = expenseId))
-            val expense = db.transactionDao().getAll().first().find { it.id == expenseId } ?: return@launch
+            val all2: List<TransactionEntity> = db.transactionDao().getAll().first()
+            val expense = all2.find { tx -> tx.id == expenseId } ?: return@launch
             db.transactionDao().insert(expense.copy(awaitingRefund = false))
         }
     }
 
     fun markAwaitingRefund(transactionId: UUID, awaiting: Boolean) {
         viewModelScope.launch {
-            val tx = db.transactionDao().getAll().first().find { it.id == transactionId } ?: return@launch
-            db.transactionDao().insert(tx.copy(awaitingRefund = awaiting))
+            val all: List<TransactionEntity> = db.transactionDao().getAll().first()
+            val txn = all.find { tx -> tx.id == transactionId } ?: return@launch
+            db.transactionDao().insert(txn.copy(awaitingRefund = awaiting))
         }
     }
 }
@@ -157,7 +160,7 @@ private fun AwaitingRow(tx: TransactionEntity) {
         headlineContent = { Text(tx.merchant) },
         supportingContent = { Text(fmt.format(tx.date)) },
         trailingContent = {
-            Text(formatCurrency(tx.amount), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
+            Text(formatCurrency(tx.amount.toDouble()), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
         },
         leadingContent = {
             Icon(Icons.Default.HourglassEmpty, contentDescription = null,
@@ -174,9 +177,9 @@ private fun MatchedRow(refund: TransactionEntity, original: TransactionEntity) {
         supportingContent = { Text("Refunded ${fmt.format(refund.date)}") },
         trailingContent = {
             Column(horizontalAlignment = Alignment.End) {
-                Text(formatCurrency(original.amount), color = MaterialTheme.colorScheme.error,
+                Text(formatCurrency(original.amount.toDouble()), color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall)
-                Text(formatCurrency(refund.amount.abs()), color = MaterialTheme.colorScheme.primary,
+                Text(formatCurrency(refund.amount.abs().toDouble()), color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.bodySmall)
             }
         },
@@ -201,7 +204,7 @@ private fun SuggestedMatchCard(expense: TransactionEntity, credit: TransactionEn
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text(formatCurrency(expense.amount), color = MaterialTheme.colorScheme.primary,
+                Text(formatCurrency(expense.amount.toDouble()), color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold)
             }
             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {

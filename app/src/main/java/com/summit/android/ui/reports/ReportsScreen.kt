@@ -9,7 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,16 +62,18 @@ fun ReportsScreen(viewModel: ReportsViewModel = viewModel()) {
             }
 
             // Comparison section — shown when a mode is active and we have data
+            val currentSummary = uiState.currentSummary
+            val compareSummary = uiState.compareSummary
             if (uiState.compareMode != ReportCompareMode.OFF &&
-                uiState.currentSummary != null && uiState.compareSummary != null
+                currentSummary != null && compareSummary != null
             ) {
                 item {
-                    SectionHeader("vs ${uiState.compareSummary.period.label}")
+                    SectionHeader("vs ${compareSummary.period.label}")
                 }
                 item {
                     ReportComparisonSection(
-                        current = uiState.currentSummary,
-                        previous = uiState.compareSummary
+                        current = currentSummary,
+                        previous = compareSummary
                     )
                 }
             }
@@ -271,7 +273,7 @@ fun CompareModePicker(
             OutlinedButton(onClick = { expanded = true }) {
                 Text(selected.displayName)
                 Spacer(Modifier.width(4.dp))
-                Icon(androidx.compose.material.icons.Icons.Default.ArrowDropDown,
+                Icon(Icons.Default.ArrowDropDown,
                     contentDescription = null, modifier = Modifier.size(18.dp))
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -281,7 +283,7 @@ fun CompareModePicker(
                         onClick = { onSelect(mode); expanded = false },
                         trailingIcon = {
                             if (mode == selected)
-                                Icon(androidx.compose.material.icons.Icons.Default.Check,
+                                Icon(Icons.Default.Check,
                                     contentDescription = null, modifier = Modifier.size(16.dp))
                         }
                     )

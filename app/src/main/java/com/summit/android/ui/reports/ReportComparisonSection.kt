@@ -44,7 +44,7 @@ fun ReportComparisonSection(current: ReportSummary, previous: ReportSummary) {
                     Text(mover.name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     val positive = mover.delta >= BigDecimal.ZERO
                     Text(
-                        "${if (positive) "+" else "−"}${formatCurrency(mover.delta.abs())}",
+                        "${if (positive) "+" else "−"}${formatCurrency(mover.delta.abs().toDouble())}",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (positive) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.primary
@@ -77,11 +77,11 @@ private fun DeltaStatRow(
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(formatCurrency(current), style = MaterialTheme.typography.bodyMedium)
+            Text(formatCurrency(current.toDouble()), style = MaterialTheme.typography.bodyMedium)
             Text(
                 buildString {
                     append(if (delta >= BigDecimal.ZERO) "+" else "−")
-                    append(formatCurrency(delta.abs()))
+                    append(formatCurrency(delta.abs().toDouble()))
                     if (pctText != null) append(" ($pctText)")
                 },
                 style = MaterialTheme.typography.labelSmall,

@@ -127,13 +127,13 @@ object FinancialCoachService {
         return movers.take(2).map { m ->
             val pct = (kotlin.math.abs(m.ratio) * 100).toInt()
             if (m.diff > BigDecimal.ZERO) {
-                CoachInsight("trending_up", "${m.name} is up $pct% this month",
-                    "${formatCurrency(m.lastPeriod)} → ${formatCurrency(m.thisPeriod)} versus the same point last month.",
-                    CoachSentiment.NEGATIVE)
+                CoachInsight(icon = "trending_up", title = "${m.name} is up $pct% this month",
+                    detail = "${formatCurrency(m.lastPeriod)} → ${formatCurrency(m.thisPeriod)} versus the same point last month.",
+                    sentiment = CoachSentiment.NEGATIVE)
             } else {
-                CoachInsight("trending_down", "${m.name} is down $pct% this month",
-                    "${formatCurrency(m.lastPeriod)} → ${formatCurrency(m.thisPeriod)} versus the same point last month. Nice work.",
-                    CoachSentiment.POSITIVE)
+                CoachInsight(icon = "trending_down", title = "${m.name} is down $pct% this month",
+                    detail = "${formatCurrency(m.lastPeriod)} → ${formatCurrency(m.thisPeriod)} versus the same point last month. Nice work.",
+                    sentiment = CoachSentiment.POSITIVE)
             }
         }
     }
@@ -141,7 +141,7 @@ object FinancialCoachService {
     // MARK: Subscription price changes
 
     private fun priceChangeInsights(transactions: List<TransactionEntity>, now: Date): List<CoachInsight> {
-        return SubscriptionTracker.detectPriceChanges(transactions, now).take(2).map { change ->
+        return SubscriptionTracker.detectPriceChanges(transactions, now = now).take(2).map { change ->
             CoachInsight(
                 icon = if (change.isIncrease) "arrow_upward" else "arrow_downward",
                 title = "${change.merchant} ${if (change.isIncrease) "raised" else "lowered"} its price",

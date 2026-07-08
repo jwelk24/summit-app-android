@@ -65,6 +65,14 @@ fun NetWorthScreen(
                 NetWorthChart(uiState.chartPoints)
             }
 
+            uiState.milestone?.let { milestone ->
+                item {
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        NetWorthMilestoneCard(milestone)
+                    }
+                }
+            }
+
             if (uiState.currentTier == SubscriptionTier.PREMIUM && uiState.holdings.isNotEmpty()) {
                 item { SectionHeader("Investments") }
                 items(uiState.holdings) { holding ->

@@ -1,5 +1,6 @@
 package com.summit.android.service
 
+import android.content.Context
 import com.summit.android.data.entity.AccountEntity
 import com.summit.android.data.entity.TransactionEntity
 import com.summit.android.data.model.AccountType
@@ -56,7 +57,8 @@ object FinancialHealthService {
     fun compute(
         transactions: List<TransactionEntity>,
         accounts: List<AccountEntity>,
-        now: Date = Date()
+        now: Date = Date(),
+        context: Context? = null
     ): FinancialHealthScore {
         val cal = Calendar.getInstance()
         cal.time = now
@@ -77,13 +79,13 @@ object FinancialHealthService {
                 savingsPillar(summary),
                 runwayPillar(accounts, monthlySpend),
                 debtPillar(accounts, monthlyIncome),
-                subscriptionPillar(transactions, monthlyIncome, now)
+                subscriptionPillar(transactions, monthlyIncome, now, context)
             ),
             hasData = true
         )
     }
 
-    fun scoreHistory(transactions: List<TransactionEntity>, accounts: List<AccountEntity>, now: Date = Date()): List<HealthScorePoint> {
+    fun scoreHistory(transactions: List<TransactionEntity>, accounts: List<AccountEntity>, now: Date = Date(), context: Context? = null): List<HealthScorePoint> {
         val cal = Calendar.getInstance()
         val result = mutableListOf<HealthScorePoint>()
         for (offset in 5 downTo 0) {
@@ -149,8 +151,9 @@ object FinancialHealthService {
 
     // MARK: Subscription load — under 5% earns full marks, 15%+ = none
 
-    private fun subscriptionPillar(transactions: List<TransactionEntity>, monthlyIncome: BigDecimal, now: Date): HealthPillar {
-        val monthlyCost = SubscriptionTracker.detect(transactions).fold(BigDecimal.ZERO) { acc, sub ->
+    private fun subscriptionPillar(transactions: List<TransactionEntity>, monthlyIncome: BigDecimal, now: Date, context: Context? = null): HealthPillar {
+        val subs = if (context != null) SubscriptionTracker.detect(transactions, context = context) else emptyList()
+        val monthlyCost = subs.fold(BigDecimal.ZERO) { acc, sub ->
             acc.add(sub.typicalAmount.multiply(BigDecimal(30)).divide(BigDecimal(sub.cadence.intervalDays), 2, RoundingMode.HALF_UP))
         }
         val share = if (monthlyIncome > BigDecimal.ZERO) monthlyCost.toDouble() / monthlyIncome.toDouble() else 0.0

@@ -1,5 +1,6 @@
 package com.summit.android.ui.networth
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.plaid.link.OpenPlaidLink
+import com.plaid.link.configuration.LinkTokenConfiguration
+import com.plaid.link.result.LinkSuccess
 import com.summit.android.billing.PremiumManager
 import com.summit.android.service.StoredPlaidItem
 import java.text.SimpleDateFormat
@@ -31,6 +35,37 @@ fun PlaidConnectionsScreen(
     val items by viewModel.items.collectAsStateWithLifecycle()
     val syncingItemId by viewModel.syncingItemId.collectAsStateWithLifecycle()
     val currentTier by PremiumManager.currentTier.collectAsStateWithLifecycle()
+    val pendingLinkToken by viewModel.pendingLinkToken.collectAsStateWithLifecycle()
+    val isLinkLoading by viewModel.isLinkLoading.collectAsStateWithLifecycle()
+    val linkError by viewModel.linkError.collectAsStateWithLifecycle()
+
+    val plaidLauncher = rememberLauncherForActivityResult(OpenPlaidLink()) { result ->
+        when (result) {
+            is LinkSuccess -> viewModel.onLinkSuccess(
+                publicToken = result.publicToken,
+                institutionName = result.metadata.institution?.name
+            )
+            else -> { /* user exited without linking */ }
+        }
+    }
+
+    LaunchedEffect(pendingLinkToken) {
+        val token = pendingLinkToken ?: return@LaunchedEffect
+        val config = LinkTokenConfiguration.Builder().token(token).build()
+        viewModel.onLinkTokenConsumed()
+        plaidLauncher.launch(config)
+    }
+
+    linkError?.let { error ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissLinkError() },
+            title = { Text("Connection Error") },
+            text = { Text(error) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissLinkError() }) { Text("OK") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -92,10 +127,24 @@ fun PlaidConnectionsScreen(
                             Text("Upgrade to Increase Limit")
                         }
                     } else {
-                        Button(onClick = onAddBank, modifier = Modifier.fillMaxWidth()) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Link New Bank")
+                        Button(
+                            onClick = { viewModel.requestLink() },
+                            enabled = !isLinkLoading,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (isLinkLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Connecting…")
+                            } else {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Link New Bank")
+                            }
                         }
                     }
                 }

@@ -180,10 +180,10 @@ fun WeeklyReviewScreen(onBack: () -> Unit) {
 private fun StepSummary(state: WeeklyReviewState) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Here's your week at a glance", style = MaterialTheme.typography.bodyLarge)
-        StatRow("Spent this week", formatCurrency(state.totalSpent))
-        StatRow("Earned this week", formatCurrency(state.totalIncome))
+        StatRow("Spent this week", formatCurrency(state.totalSpent.toDouble()))
+        StatRow("Earned this week", formatCurrency(state.totalIncome.toDouble()))
         val net = state.totalIncome.subtract(state.totalSpent)
-        StatRow("Net", formatCurrency(net),
+        StatRow("Net", formatCurrency(net.toDouble()),
             color = if (net >= BigDecimal.ZERO) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.error)
     }

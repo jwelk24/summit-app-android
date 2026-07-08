@@ -22,6 +22,7 @@ import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
 import com.patrykandpatrick.vico.compose.chart.line.lineChart
 import com.patrykandpatrick.vico.core.entry.entryModelOf
+import com.patrykandpatrick.vico.core.entry.entryOf
 import com.summit.android.data.AppDatabase
 import com.summit.android.service.*
 import com.summit.android.ui.transactions.formatCurrency
@@ -142,9 +143,7 @@ private fun ProjectionCard(proj: WhatIfProjection, currentNetWorth: BigDecimal) 
             Text("24-Month Projection", style = MaterialTheme.typography.titleSmall)
             val vals = proj.monthlyValues()
             if (vals.isNotEmpty()) {
-                val model = entryModelOf(*vals.mapIndexed { i, v ->
-                    com.patrykandpatrick.vico.core.entry.entryOf(i.toFloat(), v.toFloat())
-                }.toTypedArray())
+                val model = entryModelOf(*vals.map { it.toFloat() }.toTypedArray())
                 Chart(
                     chart = lineChart(),
                     model = model,
@@ -154,7 +153,7 @@ private fun ProjectionCard(proj: WhatIfProjection, currentNetWorth: BigDecimal) 
                 )
             }
             val finalVal = proj.monthlyValues().lastOrNull() ?: currentNetWorth
-            Text("Projected: ${formatCurrency(finalVal)}",
+            Text("Projected: ${formatCurrency(finalVal.toDouble())}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium)
         }
@@ -166,7 +165,7 @@ private fun ScenarioRow(change: WhatIfChange, onRemove: () -> Unit) {
     ListItem(
         headlineContent = { Text(change.name) },
         supportingContent = {
-            Text("${change.kind.name.lowercase().replaceFirstChar { it.uppercase() }} • ${if (change.amount >= BigDecimal.ZERO) "+" else ""}${formatCurrency(change.amount)}")
+            Text("${change.kind.name.lowercase().replaceFirstChar { it.uppercase() }} • ${if (change.amount >= BigDecimal.ZERO) "+" else ""}${formatCurrency(change.amount.toDouble())}")
         },
         trailingContent = {
             IconButton(onClick = onRemove) {

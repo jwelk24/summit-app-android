@@ -92,13 +92,13 @@ fun WrappedScreen(onBack: () -> Unit) {
 private fun buildPages(stats: WrappedStats, year: Int): List<@Composable () -> Unit> {
     return listOf(
         { WrappedPage("${year} at a Glance", Icons.Default.CalendarMonth) {
-            StatItem("Total Spent", formatCurrency(stats.totalSpent))
-            StatItem("Total Earned", formatCurrency(stats.totalIncome))
+            StatItem("Total Spent", formatCurrency(stats.totalSpent.toDouble()))
+            StatItem("Total Earned", formatCurrency(stats.totalIncome.toDouble()))
             StatItem("No-Spend Days", "${stats.noSpendDays}")
         }},
         { WrappedPage("Top Categories", Icons.Default.Category) {
             stats.topCategories.take(5).forEach { (name, amount) ->
-                StatItem(name, formatCurrency(amount))
+                StatItem(name, formatCurrency(amount.toDouble()))
             }
         }},
         { WrappedPage("Favourite Merchant", Icons.Default.Store) {
@@ -106,7 +106,7 @@ private fun buildPages(stats: WrappedStats, year: Int): List<@Composable () -> U
             if (m != null) {
                 StatItem("Merchant", m.first)
                 StatItem("Visits", "${m.second}")
-                StatItem("Total Spent", formatCurrency(m.third))
+                StatItem("Total Spent", formatCurrency(m.third.toDouble()))
             } else {
                 Text("Not enough data", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -115,7 +115,7 @@ private fun buildPages(stats: WrappedStats, year: Int): List<@Composable () -> U
             val b = stats.biggestPurchase
             if (b != null) {
                 StatItem("Merchant", b.first)
-                StatItem("Amount", formatCurrency(b.second))
+                StatItem("Amount", formatCurrency(b.second.toDouble()))
             } else {
                 Text("No large purchases found", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

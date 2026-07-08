@@ -43,6 +43,13 @@ import com.summit.android.ui.subscriptions.SubscriptionsScreen
 import com.summit.android.ui.transactions.RefundTrackerScreen
 import com.summit.android.ui.whatif.WhatIfScreen
 import com.summit.android.ui.wrapped.WrappedScreen
+import com.summit.android.ui.coach.CoachScreen
+import com.summit.android.ui.savetospend.SafeToSpendScreen
+import com.summit.android.ui.health.FinancialHealthScreen
+import com.summit.android.ui.budget.BudgetDraftScreen
+import com.summit.android.ui.debt.DebtPayoffScreen
+import com.summit.android.ui.settleup.SettleUpScreen
+import com.summit.android.ui.tax.TaxPackScreen
 
 @Composable
 fun MainScreen() {
@@ -96,7 +103,11 @@ fun MainScreen() {
                     onManageAlerts = { navController.navigate(Screen.SmartAlerts.route) },
                     onManageSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
                     onCustomizeAppearance = { navController.navigate(Screen.CustomizeAppearance.route) },
-                    onPaycheckPlan = { navController.navigate(Screen.PaycheckPlan.route) }
+                    onPaycheckPlan = { navController.navigate(Screen.PaycheckPlan.route) },
+                    onBudgetDraft = { navController.navigate(Screen.BudgetDraft.route) },
+                    onDebtPayoff = { navController.navigate(Screen.DebtPayoff.route) },
+                    onSettleUp = { navController.navigate(Screen.SettleUp.route) },
+                    onTaxPack = { navController.navigate(Screen.TaxPack.route) }
                 )
             }
             composable(Screen.Transactions.route) {
@@ -123,12 +134,12 @@ fun MainScreen() {
             }
             composable(Screen.Horizon.route) {
                 HorizonScreen(
-                    onShowForecast = { navController.navigate("forecast") },
+                    onShowForecast = { navController.navigate(Screen.CashFlowForecast.route) },
                     onWhatIf = { navController.navigate(Screen.WhatIf.route) },
                     onBillCalendar = { navController.navigate(Screen.BillCalendar.route) }
                 )
             }
-            composable("forecast") {
+            composable(Screen.CashFlowForecast.route) {
                 CashFlowForecastScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.Reports.route) { ReportsScreen() }
@@ -137,7 +148,10 @@ fun MainScreen() {
                     onUpgrade = { navController.navigate(Screen.Paywall.route) },
                     onWeeklyReview = { navController.navigate(Screen.WeeklyReview.route) },
                     onWrapped = { navController.navigate(Screen.Wrapped.route) },
-                    onChallenges = { navController.navigate(Screen.Challenges.route) }
+                    onChallenges = { navController.navigate(Screen.Challenges.route) },
+                    onCoach = { navController.navigate(Screen.Coach.route) },
+                    onSafeToSpend = { navController.navigate(Screen.SafeToSpend.route) },
+                    onFinancialHealth = { navController.navigate(Screen.FinancialHealth.route) }
                 )
             }
             composable(Screen.CategoryRules.route) {
@@ -204,6 +218,30 @@ fun MainScreen() {
             }
             composable(Screen.RefundTracker.route) {
                 RefundTrackerScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.Coach.route) {
+                CoachScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SafeToSpend.route) {
+                SafeToSpendScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.FinancialHealth.route) {
+                FinancialHealthScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.BudgetDraft.route) {
+                BudgetDraftScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.DebtPayoff.route) {
+                DebtPayoffScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.SettleUp.route) {
+                SettleUpScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.TaxPack.route) {
+                TaxPackScreen(
+                    onBack = { navController.popBackStack() },
+                    onUpgrade = { navController.navigate(Screen.Paywall.route) }
+                )
             }
             composable(
                 route = "${Screen.TransactionEditor.route}/{transactionId}",

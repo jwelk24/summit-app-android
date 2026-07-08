@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
@@ -106,7 +107,7 @@ private fun SuggestedAmountCard(plan: PaycheckPlan) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Suggested This Paycheck", style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(formatCurrency(plan.suggestedAmount),
+            Text(formatCurrency(plan.suggestedAmount.toDouble()),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary)
@@ -130,7 +131,7 @@ private fun BillRow(item: ScheduledItemEntity) {
         headlineContent = { Text(item.name) },
         supportingContent = { Text("Due ${fmt.format(item.nextDate)}") },
         trailingContent = {
-            Text(formatCurrency(item.amount), fontWeight = FontWeight.Medium,
+            Text(formatCurrency(item.amount.toDouble()), fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.error)
         },
         leadingContent = {
@@ -149,7 +150,7 @@ private fun GoalRow(goal: GoalEntity) {
             goal.targetDate?.let { Text("Target: ${fmt.format(it)}") }
         },
         trailingContent = {
-            Text(formatCurrency(goal.targetAmount), fontWeight = FontWeight.Medium,
+            Text(formatCurrency(goal.targetAmount.toDouble()), fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.primary)
         },
         leadingContent = {

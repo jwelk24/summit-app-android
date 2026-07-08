@@ -56,7 +56,7 @@ object MerchantCleaner {
 
         // 5. Title-case shouty all-caps descriptors
         val letters = s.filter { it.isLetter() }
-        val uppercase = letters.count { it.isUppercase() }
+        val uppercase = letters.count { it.isUpperCase() }
         if (letters.isNotEmpty() && uppercase.toDouble() / letters.length > 0.7) {
             s = s.split(" ").joinToString(" ") { word ->
                 word.lowercase().replaceFirstChar { it.uppercase() }

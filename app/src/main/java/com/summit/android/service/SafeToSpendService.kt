@@ -53,7 +53,7 @@ object SafeToSpendService {
             return SafeToSpend(BigDecimal.ZERO, BigDecimal.ZERO, spentToday, BigDecimal.ZERO, null, 0, cushion, false)
         }
 
-        val startBalance = CashFlowForecaster.spendableBalance(accounts)
+        val startBalance = CashFlowForecasterUtils.spendableBalance(accounts)
         val projection = CashFlowForecaster(startBalance, scheduled, horizonDays).project()
 
         // Next income event

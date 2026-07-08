@@ -336,7 +336,7 @@ object SmartAlertsService {
                     sendNotification(
                         context,
                         "Unusual Charge at $name",
-                        "${formatCurrency(latest.amount.abs())} is much higher than your usual ${formatCurrency(BigDecimal.valueOf(median))}.",
+                        "${formatCurrency(latest.amount.abs().toDouble())} is much higher than your usual ${formatCurrency(median)}.",
                         (dedupeKey.hashCode() and 0x7FFFFFFF)
                     )
                     prefs.edit().putBoolean(dedupeKey, true).apply()
@@ -364,7 +364,7 @@ object SmartAlertsService {
                     sendNotification(
                         context,
                         "Possible Duplicate Charge",
-                        "${formatCurrency(a.amount.abs())} at $name appears twice within 48 hours.",
+                        "${formatCurrency(a.amount.abs().toDouble())} at $name appears twice within 48 hours.",
                         (dedupeKey.hashCode() and 0x7FFFFFFF)
                     )
                     prefs.edit().putBoolean(dedupeKey, true).apply()
