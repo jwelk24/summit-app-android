@@ -33,7 +33,7 @@ class ReceiptScannerViewModel(application: Application) : AndroidViewModel(appli
     private val db = Room.databaseBuilder(
         application,
         AppDatabase::class.java, "summit-db"
-    ).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2).build()
 
     private val _phase = MutableStateFlow(ScanPhase.PICK_PHOTO)
     val phase: StateFlow<ScanPhase> = _phase

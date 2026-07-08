@@ -27,7 +27,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     private val db = Room.databaseBuilder(
         application,
         AppDatabase::class.java, "summit-db"
-    ).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2).build()
     
     private val engine = BudgetEngine(application)
 

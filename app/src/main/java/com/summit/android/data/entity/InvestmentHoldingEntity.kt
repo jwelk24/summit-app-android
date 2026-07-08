@@ -36,4 +36,14 @@ data class InvestmentHoldingEntity(
     val currencyCode: String,
     val asOfDate: Date,
     val accountId: UUID?
-)
+) {
+    val unrealizedGain: BigDecimal?
+        get() = costBasis?.let { institutionValue.subtract(it) }
+
+    val returnFraction: Double?
+        get() {
+            val basis = costBasis ?: return null
+            if (basis.signum() == 0) return null
+            return unrealizedGain?.toDouble()?.div(basis.toDouble())
+        }
+}

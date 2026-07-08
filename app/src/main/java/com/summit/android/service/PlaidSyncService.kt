@@ -15,7 +15,7 @@ class PlaidSyncService(context: Context) {
     private val db = Room.databaseBuilder(
         context.applicationContext,
         AppDatabase::class.java, "summit-db"
-    ).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2).build()
 
     private val plaidStorage = PlaidStorage(context)
     private val plaidApi = PlaidService.api

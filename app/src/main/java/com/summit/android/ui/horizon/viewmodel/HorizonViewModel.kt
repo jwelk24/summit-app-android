@@ -40,7 +40,7 @@ class HorizonViewModel(application: Application) : AndroidViewModel(application)
     private val db = Room.databaseBuilder(
         application,
         AppDatabase::class.java, "summit-db"
-    ).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2).build()
 
     val uiState: StateFlow<HorizonUiState> = combine(
         db.accountDao().getAll(),

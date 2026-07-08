@@ -16,7 +16,7 @@ class TransactionsViewModel(application: Application) : AndroidViewModel(applica
     private val db = Room.databaseBuilder(
         application,
         AppDatabase::class.java, "summit-db"
-    ).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2).build()
 
     val transactions: StateFlow<List<TransactionEntity>> = db.transactionDao().getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

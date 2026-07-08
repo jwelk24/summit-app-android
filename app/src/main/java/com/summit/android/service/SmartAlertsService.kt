@@ -33,6 +33,7 @@ object SmartAlertsService {
     private const val LOW_BALANCE_ENABLED_KEY = "alerts.lowbalance.enabled"
     private const val LOW_BALANCE_THRESHOLD_KEY = "alerts.lowbalance.threshold"
     private const val PRICE_CHANGE_ENABLED_KEY = "alerts.pricechange.enabled"
+    private const val ANOMALY_ENABLED_KEY = "alerts.anomaly.enabled"
 
     fun isBudgetEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(BUDGET_ENABLED_KEY, false)
@@ -88,6 +89,12 @@ object SmartAlertsService {
     fun setPriceChangeEnabled(context: Context, enabled: Boolean) =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(PRICE_CHANGE_ENABLED_KEY, enabled).apply()
 
+    fun isAnomalyEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(ANOMALY_ENABLED_KEY, false)
+
+    fun setAnomalyEnabled(context: Context, enabled: Boolean) =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(ANOMALY_ENABLED_KEY, enabled).apply()
+
     suspend fun runChecks(context: Context, year: Int, month: Int): Int {
         var sent = 0
         // Bill reminders and low-balance warning available on all tiers
@@ -108,12 +115,15 @@ object SmartAlertsService {
             if (isPriceChangeEnabled(context)) {
                 sent += runPriceChangeChecks(context)
             }
+            if (isAnomalyEnabled(context)) {
+                sent += runAnomalyChecks(context)
+            }
         }
         return sent
     }
 
     private suspend fun runBudgetChecks(context: Context, year: Int, month: Int): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2).build()
         val budgetMonth = db.budgetDao().getMonth(year, month) ?: return 0
         val categories = db.categoryDao().getCategories().first()
         val threshold = getBudgetThreshold(context)
@@ -147,7 +157,7 @@ object SmartAlertsService {
     }
 
     private suspend fun runUnusualChargeChecks(context: Context): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2).build()
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.DAY_OF_YEAR, -1)
         val cutoff = calendar.time
@@ -180,7 +190,7 @@ object SmartAlertsService {
     }
 
     private suspend fun runBillReminderChecks(context: Context): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2).build()
         val cal = Calendar.getInstance()
         val today = cal.apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.time
         val horizon = Calendar.getInstance().apply { time = today; add(Calendar.DAY_OF_YEAR, 45) }.time
@@ -218,7 +228,7 @@ object SmartAlertsService {
     }
 
     private suspend fun runPriceChangeChecks(context: Context): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2).build()
         val transactions = db.transactionDao().getAll().first()
         val changes = SubscriptionTracker.detectPriceChanges(transactions)
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -241,7 +251,7 @@ object SmartAlertsService {
     }
 
     private suspend fun runLowBalanceCheck(context: Context): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2).build()
         val accounts = db.accountDao().getAll().first()
         if (accounts.none { it.type == AccountType.CHECKING || it.type == AccountType.SAVINGS }) return 0
 
@@ -293,6 +303,78 @@ object SmartAlertsService {
             .build()
 
         notificationManager.notify(id, notification)
+    }
+
+    private suspend fun runAnomalyChecks(context: Context): Int {
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2).build()
+        val allTx = db.transactionDao().getAll().first()
+            .filter { it.amount < BigDecimal.ZERO }  // spending only
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        var sent = 0
+
+        // Group by merchant for spike detection
+        val byMerchant = allTx.groupBy { MerchantCleaner.clean(it.merchant).lowercase() }
+        val now = Date()
+        val cal = Calendar.getInstance()
+
+        for ((merchant, txList) in byMerchant) {
+            val sorted = txList.sortedBy { it.date }
+            if (sorted.size < 3) continue  // need ≥3 prior data points
+
+            val latest = sorted.last()
+            val priors = sorted.dropLast(1)
+            val amounts = priors.map { it.amount.abs().toDouble() }
+            val median = amounts.sorted()[amounts.size / 2]
+            val latestAmt = latest.amount.abs().toDouble()
+            val delta = latestAmt - median
+
+            // Merchant spike: ≥3× median, ≥$20 delta
+            if (latestAmt >= median * 3 && delta >= 20.0) {
+                val dedupeKey = "anomaly.spike.${latest.id}"
+                if (!prefs.getBoolean(dedupeKey, false)) {
+                    val name = MerchantCleaner.clean(latest.merchant)
+                    sendNotification(
+                        context,
+                        "Unusual Charge at $name",
+                        "${formatCurrency(latest.amount.abs())} is much higher than your usual ${formatCurrency(BigDecimal.valueOf(median))}.",
+                        (dedupeKey.hashCode() and 0x7FFFFFFF)
+                    )
+                    prefs.edit().putBoolean(dedupeKey, true).apply()
+                    sent++
+                }
+            }
+        }
+
+        // Duplicate charge detection: same merchant + amount within 48h, ≥$5
+        val windowMs = TimeUnit.HOURS.toMillis(48)
+        val checkedPairs = mutableSetOf<String>()
+        for (i in allTx.indices) {
+            val a = allTx[i]
+            if (a.amount.abs() < BigDecimal("5.00")) continue
+            for (j in i + 1 until allTx.size) {
+                val b = allTx[j]
+                if (MerchantCleaner.clean(a.merchant).lowercase() != MerchantCleaner.clean(b.merchant).lowercase()) continue
+                if (a.amount != b.amount) continue
+                val diff = Math.abs(a.date.time - b.date.time)
+                if (diff > windowMs) continue
+                val pairKey = listOf(a.id, b.id).map { it.toString() }.sorted().joinToString("|")
+                val dedupeKey = "anomaly.dup.$pairKey"
+                if (!checkedPairs.contains(pairKey) && !prefs.getBoolean(dedupeKey, false)) {
+                    val name = MerchantCleaner.clean(a.merchant)
+                    sendNotification(
+                        context,
+                        "Possible Duplicate Charge",
+                        "${formatCurrency(a.amount.abs())} at $name appears twice within 48 hours.",
+                        (dedupeKey.hashCode() and 0x7FFFFFFF)
+                    )
+                    prefs.edit().putBoolean(dedupeKey, true).apply()
+                    checkedPairs.add(pairKey)
+                    sent++
+                }
+            }
+        }
+
+        return sent
     }
 
     fun sendTestNotification(context: Context) {

@@ -65,6 +65,7 @@ private data class TransactionRow(
     val cleared: Boolean,
     @SerialName("flag_color") val flagColor: String?,
     @SerialName("pfc_primary") val pfcPrimary: String? = null,
+    val tags: String = "",
     @SerialName("deleted_at") val deletedAt: String? = null,
 )
 
@@ -135,6 +136,8 @@ private data class CategoryRuleRow(
     @SerialName("case_sensitive") val caseSensitive: Boolean,
     val enabled: Boolean,
     @SerialName("category_id") val categoryId: String?,
+    @SerialName("rename_to") val renameTo: String? = null,
+    @SerialName("add_tags") val addTags: String = "",
     @SerialName("times_applied") val timesApplied: Int,
     @SerialName("last_applied_at") val lastAppliedAt: String?,
     @SerialName("deleted_at") val deletedAt: String? = null,
@@ -259,7 +262,7 @@ object SyncService {
         val household = HouseholdService.currentHousehold.value ?: return
         _isSyncing.value = true
         try {
-            val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").build()
+            val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2).build()
             val householdIdStr = household.id.toString().lowercase()
             val canWrite = HouseholdService.currentRole.value?.canWrite ?: false
 
@@ -596,7 +599,7 @@ object SyncService {
 
     private suspend fun pushTransactions(db: AppDatabase, householdId: String) {
         val rows = db.transactionDao().getAll().first().map { t ->
-            TransactionRow(t.id.toString(), householdId, t.accountId?.toString(), t.categoryId?.toString(), df.format(t.date), t.amount.toDouble(), t.merchant, t.memo, t.cleared, t.flagColor, t.pfcPrimary)
+            TransactionRow(t.id.toString(), householdId, t.accountId?.toString(), t.categoryId?.toString(), df.format(t.date), t.amount.toDouble(), t.merchant, t.memo, t.cleared, t.flagColor, t.pfcPrimary, t.tags)
         }
         if (rows.isNotEmpty()) SupabaseService.client.postgrest["transactions"].upsert(rows)
     }
@@ -615,7 +618,7 @@ object SyncService {
             val accId = row.accountId?.let { UUID.fromString(it) }
             val catId = row.categoryId?.let { UUID.fromString(it) }
             val date = try { df.parse(row.date) ?: Date() } catch (e: Exception) { Date() }
-            val entity = TransactionEntity(txId, date, BigDecimal.valueOf(row.amount), row.merchant, row.memo, row.cleared, row.flagColor, row.pfcPrimary, accId, catId)
+            val entity = TransactionEntity(txId, date, BigDecimal.valueOf(row.amount), row.merchant, row.memo, row.cleared, row.flagColor, row.pfcPrimary, accId, catId, row.tags)
             db.transactionDao().insert(entity)
         }
     }
@@ -875,8 +878,8 @@ object SyncService {
                 id = r.id.toString(), householdId = householdId,
                 priority = r.priority, matchField = r.matchField, matchKind = r.matchKind,
                 pattern = r.pattern, caseSensitive = r.caseSensitive, enabled = r.enabled,
-                categoryId = r.categoryId?.toString(), timesApplied = r.timesApplied,
-                lastAppliedAt = r.lastAppliedAt?.let { df.format(it) }
+                categoryId = r.categoryId?.toString(), renameTo = r.renameTo, addTags = r.addTags,
+                timesApplied = r.timesApplied, lastAppliedAt = r.lastAppliedAt?.let { df.format(it) }
             )
         }
         if (rows.isNotEmpty()) SupabaseService.client.postgrest["category_rules"].upsert(rows)
@@ -897,6 +900,7 @@ object SyncService {
                 matchField = row.matchField, matchKind = row.matchKind,
                 pattern = row.pattern, caseSensitive = row.caseSensitive,
                 enabled = row.enabled, categoryId = catId,
+                renameTo = row.renameTo, addTags = row.addTags,
                 timesApplied = row.timesApplied, lastAppliedAt = lastApplied
             ))
         }

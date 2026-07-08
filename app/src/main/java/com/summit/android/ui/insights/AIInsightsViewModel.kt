@@ -16,7 +16,7 @@ class AIInsightsViewModel(application: Application) : AndroidViewModel(applicati
     private val db = Room.databaseBuilder(
         application,
         AppDatabase::class.java, "summit-db"
-    ).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2).build()
     
     private val aiService = AIInsightsService(application)
 

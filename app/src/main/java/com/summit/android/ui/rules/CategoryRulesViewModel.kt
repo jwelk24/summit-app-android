@@ -16,7 +16,7 @@ class CategoryRulesViewModel(application: Application) : AndroidViewModel(applic
     private val db = Room.databaseBuilder(
         application,
         AppDatabase::class.java, "summit-db"
-    ).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2).build()
 
     val rules: StateFlow<List<CategoryRuleEntity>> = db.categoryRuleDao().getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

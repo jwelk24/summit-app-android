@@ -16,7 +16,7 @@ class BudgetEngine(context: Context) {
     private val db = Room.databaseBuilder(
         context.applicationContext,
         AppDatabase::class.java, "summit-db"
-    ).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2).build()
 
     // MARK: - Pure calculations
 
@@ -80,7 +80,26 @@ class BudgetEngine(context: Context) {
         if (existing != null) return existing
         val newMonth = BudgetMonthEntity(year = year, month = month, carryover = BigDecimal.ZERO)
         db.budgetDao().insertMonth(newMonth)
+        if (BudgetRollover.isEnabled) seedRollover(newMonth)
         return newMonth
+    }
+
+    private suspend fun seedRollover(newMonth: BudgetMonthEntity) {
+        val prevMonth = if (newMonth.month == 1) 12 else newMonth.month - 1
+        val prevYear = if (newMonth.month == 1) newMonth.year - 1 else newMonth.year
+        val prevMonthEntity = db.budgetDao().getMonth(prevYear, prevMonth) ?: return
+        val transactions = db.transactionDao().getAll().first()
+        val categories = db.categoryDao().getCategoriesList()
+        for (category in categories) {
+            val avail = available(category, prevMonthEntity, prevYear, prevMonth)
+            if (avail == BigDecimal.ZERO) continue
+            val existing = db.budgetDao().getAllocation(newMonth.id, category.id)
+            if (existing != null) {
+                db.budgetDao().updateAllocation(existing.copy(amount = existing.amount.add(avail)))
+            } else {
+                db.budgetDao().insertAllocation(BudgetAllocationEntity(amount = avail, categoryId = category.id, monthId = newMonth.id))
+            }
+        }
     }
 
     suspend fun assign(amount: BigDecimal, category: CategoryEntity, budgetMonth: BudgetMonthEntity) {
@@ -214,6 +233,48 @@ class BudgetEngine(context: Context) {
     }
 
     // MARK: - Roll to next month
+
+    /**
+     * Projected monthly spend from MTD activity.
+     * Only meaningful when viewing the current month and at least 5 days have elapsed.
+     * Returns null otherwise.
+     */
+    fun projectedMonthlySpend(activity: BigDecimal, year: Int, month: Int): BigDecimal? {
+        val now = Calendar.getInstance()
+        if (now.get(Calendar.YEAR) != year || (now.get(Calendar.MONTH) + 1) != month) return null
+        val spent = activity.negate()
+        if (spent <= BigDecimal.ZERO) return null
+        val dayOfMonth = now.get(Calendar.DAY_OF_MONTH)
+        if (dayOfMonth < 5) return null
+        val daysInMonth = now.getActualMaximum(Calendar.DAY_OF_MONTH)
+        val daily = spent.toDouble() / dayOfMonth
+        return BigDecimal.valueOf(daily * daysInMonth)
+    }
+
+    /**
+     * How much still needs to be assigned this month to stay on track for a goal.
+     * Returns null for non-date-target goals. Returns 0 when already funded.
+     */
+    fun neededThisMonth(
+        goal: GoalEntity,
+        availableNow: BigDecimal,
+        assignedThisMonth: BigDecimal,
+        currentYear: Int,
+        currentMonth: Int
+    ): BigDecimal? {
+        if (goal.type != GoalType.BY_DATE_TARGET) return null
+        val targetDate = goal.targetDate ?: return null
+        val cal = Calendar.getInstance()
+        cal.time = targetDate
+        val targetYear = cal.get(Calendar.YEAR)
+        val targetMonth = cal.get(Calendar.MONTH) + 1
+        val monthsLeft = maxOf(1, (targetYear - currentYear) * 12 + (targetMonth - currentMonth) + 1)
+        val priorProgress = availableNow.subtract(assignedThisMonth).max(BigDecimal.ZERO)
+        val stillNeeded = goal.targetAmount.subtract(priorProgress)
+        if (stillNeeded <= BigDecimal.ZERO) return BigDecimal.ZERO
+        val perMonth = stillNeeded.divide(BigDecimal(monthsLeft), 2, java.math.RoundingMode.UP)
+        return perMonth.subtract(assignedThisMonth).max(BigDecimal.ZERO)
+    }
 
     suspend fun rollToNextMonth(current: BudgetMonthEntity, transactions: List<TransactionEntity>, categories: List<CategoryEntity>) {
         val unassigned = availableToBudget(transactions, current, current.year, current.month)
@@ -508,5 +569,19 @@ class BudgetEngine(context: Context) {
             val recent = perOutflow.takeLast(lookback)
             return (recent.sum() / recent.size).toInt()
         }
+    }
+}
+
+object BudgetRollover {
+    private const val KEY = "budgetRolloverEnabled"
+
+    var isEnabled: Boolean
+        get() = prefs?.getBoolean(KEY, false) ?: false
+        set(value) { prefs?.edit()?.putBoolean(KEY, value)?.apply() }
+
+    private var prefs: android.content.SharedPreferences? = null
+
+    fun init(context: android.content.Context) {
+        prefs = context.getSharedPreferences("summit_prefs", android.content.Context.MODE_PRIVATE)
     }
 }

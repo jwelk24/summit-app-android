@@ -17,7 +17,7 @@ class SubscriptionsViewModel(application: Application) : AndroidViewModel(applic
     private val db = Room.databaseBuilder(
         application,
         AppDatabase::class.java, "summit-db"
-    ).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2).build()
 
     private val _detected = MutableStateFlow<List<DetectedSubscription>>(emptyList())
     val detected: StateFlow<List<DetectedSubscription>> = _detected

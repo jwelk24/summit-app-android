@@ -27,6 +27,11 @@ data class CategoryRuleEntity(
     val caseSensitive: Boolean = false,
     val enabled: Boolean = true,
     val categoryId: UUID?,
+    val renameTo: String? = null,        // optional: rewrite merchant name on match
+    val addTags: String = "",            // comma-separated tags to add on match
     val timesApplied: Int = 0,
     val lastAppliedAt: Date? = null
-)
+) {
+    fun addTagList(): List<String> = if (addTags.isBlank()) emptyList() else addTags.split(",").filter { it.isNotBlank() }
+    fun hasAction(): Boolean = categoryId != null || !renameTo.isNullOrBlank() || addTags.isNotBlank()
+}

@@ -36,5 +36,9 @@ data class TransactionEntity(
     val flagColor: String?,
     val pfcPrimary: String?,
     val accountId: UUID?,
-    val categoryId: UUID?
-)
+    val categoryId: UUID?,
+    val tags: String = "" // comma-separated lowercase tags, e.g. "vacation,reimbursable"
+) {
+    fun tagList(): List<String> = if (tags.isBlank()) emptyList() else tags.split(",").filter { it.isNotBlank() }
+    fun withTags(newTags: List<String>): TransactionEntity = copy(tags = newTags.joinToString(","))
+}
