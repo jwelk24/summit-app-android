@@ -33,9 +33,16 @@ import java.util.UUID
 
 import com.summit.android.ui.alerts.SmartAlertsScreen
 import com.summit.android.ui.billing.PaywallScreen
+import com.summit.android.ui.budget.PaycheckPlanScreen
+import com.summit.android.ui.calendar.BillCalendarScreen
+import com.summit.android.ui.challenges.ChallengesScreen
+import com.summit.android.ui.review.WeeklyReviewScreen
 import com.summit.android.ui.rules.CategoryRulesScreen
 import com.summit.android.ui.rules.RuleEditorScreen
 import com.summit.android.ui.subscriptions.SubscriptionsScreen
+import com.summit.android.ui.transactions.RefundTrackerScreen
+import com.summit.android.ui.whatif.WhatIfScreen
+import com.summit.android.ui.wrapped.WrappedScreen
 
 @Composable
 fun MainScreen() {
@@ -165,6 +172,27 @@ fun MainScreen() {
             }
             composable(Screen.Paywall.route) {
                 PaywallScreen(onDismiss = { navController.popBackStack() })
+            }
+            composable(Screen.PaycheckPlan.route) {
+                PaycheckPlanScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.Challenges.route) {
+                ChallengesScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.WeeklyReview.route) {
+                WeeklyReviewScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.Wrapped.route) {
+                WrappedScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.BillCalendar.route) {
+                BillCalendarScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.WhatIf.route) {
+                WhatIfScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.RefundTracker.route) {
+                RefundTrackerScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "${Screen.TransactionEditor.route}/{transactionId}",

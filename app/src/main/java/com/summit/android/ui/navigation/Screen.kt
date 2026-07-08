@@ -22,6 +22,13 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Subscriptions : Screen("subscriptions", "Subscriptions", Icons.Default.Repeat)
     object RuleEditor : Screen("rule_editor", "Edit Rule", Icons.Default.Edit)
     object CustomizeAppearance : Screen("customize_appearance", "Appearance", Icons.Default.Palette)
+    object PaycheckPlan : Screen("paycheck_plan", "Paycheck Plan", Icons.Default.Payments)
+    object Challenges : Screen("challenges", "Challenges", Icons.Default.EmojiEvents)
+    object WeeklyReview : Screen("weekly_review", "Weekly Review", Icons.Default.CheckCircle)
+    object Wrapped : Screen("wrapped", "Wrapped", Icons.Default.AutoAwesome)
+    object BillCalendar : Screen("bill_calendar", "Bill Calendar", Icons.Default.CalendarMonth)
+    object WhatIf : Screen("what_if", "What If?", Icons.Default.TrendingUp)
+    object RefundTracker : Screen("refund_tracker", "Refund Tracker", Icons.Default.AssignmentReturn)
 }
 
 val bottomNavItems = listOf(
