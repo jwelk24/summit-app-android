@@ -26,6 +26,7 @@ fun BudgetScreen(
     onManageAlerts: () -> Unit,
     onManageSubscriptions: () -> Unit,
     onCustomizeAppearance: () -> Unit,
+    onPaycheckPlan: () -> Unit,
     viewModel: BudgetViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -44,10 +45,19 @@ fun BudgetScreen(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
+                            text = { Text("Plan a Paycheck") },
+                            onClick = {
+                                onPaycheckPlan()
+                                showMenu = false
+                            },
+                            leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null) }
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
                             text = { Text("Auto-Assign to Goals") },
-                            onClick = { 
+                            onClick = {
                                 viewModel.autoAssign()
-                                showMenu = false 
+                                showMenu = false
                             },
                             leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) }
                         )

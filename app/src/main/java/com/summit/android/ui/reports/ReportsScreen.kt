@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.summit.android.service.ReportCompareMode
 import com.summit.android.service.ReportRange
 import com.summit.android.ui.reports.viewmodel.CategorySpending
 import com.summit.android.ui.reports.viewmodel.MonthlyFlow
@@ -52,6 +53,29 @@ fun ReportsScreen(viewModel: ReportsViewModel = viewModel()) {
                 .padding(padding)
                 .fillMaxSize()
         ) {
+            // Compare mode picker (mirrors iOS "Compare to" picker in the range section)
+            item {
+                CompareModePicker(
+                    selected = uiState.compareMode,
+                    onSelect = { viewModel.setCompareMode(it) }
+                )
+            }
+
+            // Comparison section — shown when a mode is active and we have data
+            if (uiState.compareMode != ReportCompareMode.OFF &&
+                uiState.currentSummary != null && uiState.compareSummary != null
+            ) {
+                item {
+                    SectionHeader("vs ${uiState.compareSummary.period.label}")
+                }
+                item {
+                    ReportComparisonSection(
+                        current = uiState.currentSummary,
+                        previous = uiState.compareSummary
+                    )
+                }
+            }
+
             item {
                 SectionHeader("Spending This Month")
             }
@@ -226,4 +250,43 @@ fun SectionHeader(title: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
     )
+}
+
+@Composable
+fun CompareModePicker(
+    selected: ReportCompareMode,
+    onSelect: (ReportCompareMode) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text("Compare to", style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            OutlinedButton(onClick = { expanded = true }) {
+                Text(selected.displayName)
+                Spacer(Modifier.width(4.dp))
+                Icon(androidx.compose.material.icons.Icons.Default.ArrowDropDown,
+                    contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                ReportCompareMode.values().forEach { mode ->
+                    DropdownMenuItem(
+                        text = { Text(mode.displayName) },
+                        onClick = { onSelect(mode); expanded = false },
+                        trailingIcon = {
+                            if (mode == selected)
+                                Icon(androidx.compose.material.icons.Icons.Default.Check,
+                                    contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    )
+                }
+            }
+        }
+    }
 }

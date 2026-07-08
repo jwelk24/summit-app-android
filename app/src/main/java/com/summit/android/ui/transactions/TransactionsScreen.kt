@@ -9,9 +9,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AssignmentReturn
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -38,6 +40,7 @@ fun TransactionsScreen(
     onEditTransaction: (UUID) -> Unit,
     onScanReceipt: () -> Unit,
     onUpgrade: () -> Unit,
+    onRefundTracker: () -> Unit,
     viewModel: TransactionsViewModel = viewModel()
 ) {
     val transactions by viewModel.transactions.collectAsState()
@@ -51,27 +54,42 @@ fun TransactionsScreen(
         }
     }
 
+    var showAddMenu by remember { mutableStateOf(false) }
+
     Scaffold(
-        topBar = { 
+        topBar = {
             TopAppBar(
                 title = { Text("Transactions") },
                 actions = {
-                    IconButton(onClick = {
-                        if (PremiumManager.canScanReceipts()) {
-                            onScanReceipt()
-                        } else {
-                            onUpgrade()
-                        }
-                    }) {
-                        Icon(Icons.Default.DocumentScanner, contentDescription = "Scan Receipt")
+                    IconButton(onClick = { showAddMenu = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Actions")
+                    }
+                    DropdownMenu(
+                        expanded = showAddMenu,
+                        onDismissRequest = { showAddMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("New Transaction") },
+                            onClick = { onAddTransaction(); showAddMenu = false },
+                            leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (PremiumManager.canScanReceipts()) "Scan Receipt…" else "Scan Receipt (Premium)…") },
+                            onClick = {
+                                showAddMenu = false
+                                if (PremiumManager.canScanReceipts()) onScanReceipt() else onUpgrade()
+                            },
+                            leadingIcon = { Icon(Icons.Default.DocumentScanner, contentDescription = null) }
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text("Refund Tracker") },
+                            onClick = { onRefundTracker(); showAddMenu = false },
+                            leadingIcon = { Icon(Icons.Default.AssignmentReturn, contentDescription = null) }
+                        )
                     }
                 }
-            ) 
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddTransaction) {
-                Icon(Icons.Default.Add, contentDescription = "Add Transaction")
-            }
+            )
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize().nestedScroll(pullToRefreshState.nestedScrollConnection)) {

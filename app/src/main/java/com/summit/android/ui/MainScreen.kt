@@ -90,21 +90,23 @@ fun MainScreen() {
             popEnterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally(animationSpec = tween(300)) { -it / 10 } },
             popExitTransition = { fadeOut(animationSpec = tween(300)) + slideOutHorizontally(animationSpec = tween(300)) { it / 10 } }
         ) {
-            composable(Screen.Budget.route) { 
+            composable(Screen.Budget.route) {
                 BudgetScreen(
                     onManageRules = { navController.navigate(Screen.CategoryRules.route) },
                     onManageAlerts = { navController.navigate(Screen.SmartAlerts.route) },
                     onManageSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
-                    onCustomizeAppearance = { navController.navigate(Screen.CustomizeAppearance.route) }
+                    onCustomizeAppearance = { navController.navigate(Screen.CustomizeAppearance.route) },
+                    onPaycheckPlan = { navController.navigate(Screen.PaycheckPlan.route) }
                 )
             }
-            composable(Screen.Transactions.route) { 
+            composable(Screen.Transactions.route) {
                 TransactionsScreen(
                     onAddTransaction = { navController.navigate(Screen.TransactionEditor.route) },
                     onEditTransaction = { txId -> navController.navigate("${Screen.TransactionEditor.route}/$txId") },
                     onScanReceipt = { navController.navigate(Screen.ReceiptScanner.route) },
-                    onUpgrade = { navController.navigate(Screen.Paywall.route) }
-                ) 
+                    onUpgrade = { navController.navigate(Screen.Paywall.route) },
+                    onRefundTracker = { navController.navigate(Screen.RefundTracker.route) }
+                )
             }
             composable(Screen.ReceiptScanner.route) {
                 ReceiptScannerScreen(onDismiss = { navController.popBackStack() })
@@ -119,15 +121,24 @@ fun MainScreen() {
                     onUpgrade = { navController.navigate(Screen.Paywall.route) }
                 )
             }
-            composable(Screen.Horizon.route) { 
-                HorizonScreen(onShowForecast = { navController.navigate("forecast") }) 
+            composable(Screen.Horizon.route) {
+                HorizonScreen(
+                    onShowForecast = { navController.navigate("forecast") },
+                    onWhatIf = { navController.navigate(Screen.WhatIf.route) },
+                    onBillCalendar = { navController.navigate(Screen.BillCalendar.route) }
+                )
             }
             composable("forecast") {
                 CashFlowForecastScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.Reports.route) { ReportsScreen() }
-            composable(Screen.Insights.route) { 
-                AIInsightsScreen(onUpgrade = { navController.navigate(Screen.Paywall.route) }) 
+            composable(Screen.Insights.route) {
+                AIInsightsScreen(
+                    onUpgrade = { navController.navigate(Screen.Paywall.route) },
+                    onWeeklyReview = { navController.navigate(Screen.WeeklyReview.route) },
+                    onWrapped = { navController.navigate(Screen.Wrapped.route) },
+                    onChallenges = { navController.navigate(Screen.Challenges.route) }
+                )
             }
             composable(Screen.CategoryRules.route) {
                 CategoryRulesScreen(

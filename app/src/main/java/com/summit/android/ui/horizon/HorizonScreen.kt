@@ -5,7 +5,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +29,8 @@ import java.util.*
 @Composable
 fun HorizonScreen(
     onShowForecast: () -> Unit,
+    onWhatIf: () -> Unit,
+    onBillCalendar: () -> Unit,
     viewModel: HorizonViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -49,6 +53,12 @@ fun HorizonScreen(
                 actions = {
                     IconButton(onClick = onShowForecast) {
                         Icon(Icons.Default.ShowChart, contentDescription = "Forecast")
+                    }
+                    IconButton(onClick = onWhatIf) {
+                        Icon(Icons.Default.TrendingUp, contentDescription = "What-If Simulator")
+                    }
+                    IconButton(onClick = onBillCalendar) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = "Bill Calendar")
                     }
                     IconButton(onClick = { showAddDialog = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Add Scheduled")

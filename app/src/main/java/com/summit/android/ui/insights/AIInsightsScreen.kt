@@ -1,26 +1,28 @@
 package com.summit.android.ui.insights
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoFixHigh
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-
 import com.summit.android.billing.PremiumManager
+import com.summit.android.service.ChallengeStore
 import com.summit.android.ui.transactions.EmptyStateView
-import androidx.compose.material.icons.filled.Lock
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AIInsightsScreen(
     onUpgrade: () -> Unit,
+    onWeeklyReview: () -> Unit,
+    onWrapped: () -> Unit,
+    onChallenges: () -> Unit,
     viewModel: AIInsightsViewModel = viewModel()
 ) {
     val digest by viewModel.digest.collectAsState()
@@ -34,13 +36,31 @@ fun AIInsightsScreen(
         topBar = { TopAppBar(title = { Text("Insights") }) }
     ) { padding ->
         if (currentTier != com.summit.android.billing.SubscriptionTier.PREMIUM) {
-            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-                EmptyStateView(
-                    icon = Icons.Default.Lock,
-                    message = "AI Insights require a Premium subscription.",
-                    actionLabel = "View Plans",
-                    onAction = onUpgrade
-                )
+            LazyColumn(
+                modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    CheckInsSection(
+                        onWeeklyReview = onWeeklyReview,
+                        onWrapped = onWrapped,
+                        onChallenges = onChallenges
+                    )
+                }
+                item {
+                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text("AI Insights", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            }
+                            Text("Unlock Ask Your Money, weekly digests, and smart categorization with a Premium subscription.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Button(onClick = onUpgrade, modifier = Modifier.fillMaxWidth()) { Text("View Plans") }
+                        }
+                    }
+                }
             }
         } else {
             LazyColumn(
@@ -50,6 +70,14 @@ fun AIInsightsScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                item {
+                    CheckInsSection(
+                        onWeeklyReview = onWeeklyReview,
+                        onWrapped = onWrapped,
+                        onChallenges = onChallenges
+                    )
+                }
+
                 item {
                     WeeklyDigestCard(
                         digest = digest,
@@ -159,5 +187,96 @@ fun SmartCategorizeCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun CheckInsSection(
+    onWeeklyReview: () -> Unit,
+    onWrapped: () -> Unit,
+    onChallenges: () -> Unit
+) {
+    val wins = ChallengeStore.completedIds().size
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                Icon(Icons.Default.CalendarToday, contentDescription = null,
+                    modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                Text("Check-Ins",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            CheckInRow(
+                icon = Icons.Default.Checklist,
+                label = "Weekly Review",
+                badge = null,
+                onClick = onWeeklyReview
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+            CheckInRow(
+                icon = Icons.Default.AutoAwesome,
+                label = "Summit Wrapped",
+                badge = null,
+                onClick = onWrapped
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+            CheckInRow(
+                icon = Icons.Default.EmojiEvents,
+                label = "Challenges",
+                badge = if (wins > 0) "$wins" else null,
+                onClick = onChallenges
+            )
+
+            Text(
+                "A 3-minute weekly tidy-up, your year in review, and spending challenges.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CheckInRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    badge: String?,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        if (badge != null) {
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Text(
+                    badge,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
+            Spacer(Modifier.width(4.dp))
+        }
+        Icon(Icons.Default.ChevronRight, contentDescription = null,
+            modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

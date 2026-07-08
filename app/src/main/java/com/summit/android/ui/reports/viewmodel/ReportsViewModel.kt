@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import com.summit.android.data.AppDatabase
 import com.summit.android.service.PDFExporter
+import com.summit.android.service.ReportCompareMode
 import com.summit.android.service.ReportRange
+import com.summit.android.service.ReportSummary
 import com.summit.android.service.ReportsService
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -27,7 +29,10 @@ data class MonthlyFlow(
 
 data class ReportsUiState(
     val currentMonthSpending: List<CategorySpending> = emptyList(),
-    val sixMonthFlow: List<MonthlyFlow> = emptyList()
+    val sixMonthFlow: List<MonthlyFlow> = emptyList(),
+    val currentSummary: ReportSummary? = null,
+    val compareSummary: ReportSummary? = null,
+    val compareMode: ReportCompareMode = ReportCompareMode.OFF
 )
 
 class ReportsViewModel(application: Application) : AndroidViewModel(application) {
@@ -36,10 +41,15 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         AppDatabase::class.java, "summit-db"
     ).addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
 
+    private val _compareMode = MutableStateFlow(ReportCompareMode.OFF)
+
+    fun setCompareMode(mode: ReportCompareMode) { _compareMode.value = mode }
+
     val uiState: StateFlow<ReportsUiState> = combine(
         db.transactionDao().getAll(),
-        db.categoryDao().getCategories()
-    ) { transactions, categories ->
+        db.categoryDao().getCategories(),
+        _compareMode
+    ) { transactions, categories, compareMode ->
         val calendar = Calendar.getInstance()
         val currentYear = calendar.get(Calendar.YEAR)
         val currentMonth = calendar.get(Calendar.MONTH) + 1
@@ -77,9 +87,22 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             sixMonthFlow.add(MonthlyFlow(label, income, spending))
         }
 
+        // Current period summary for comparison section
+        val categoryNames = categories.associate { it.id to it.name }
+        val now = Calendar.getInstance()
+        val thisMonthPeriod = ReportsService.resolvePeriod(ReportRange.THIS_MONTH, null, null)
+        val currentSummary = ReportsService.buildSummary(transactions, thisMonthPeriod, categoryNames)
+        val comparePeriod = thisMonthPeriod.comparisonPeriod(compareMode)
+        val compareSummary = comparePeriod?.let {
+            ReportsService.buildSummary(transactions, it, categoryNames)
+        }
+
         ReportsUiState(
             currentMonthSpending = spendingByCat,
-            sixMonthFlow = sixMonthFlow
+            sixMonthFlow = sixMonthFlow,
+            currentSummary = currentSummary,
+            compareSummary = compareSummary,
+            compareMode = compareMode
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ReportsUiState())
 

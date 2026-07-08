@@ -17,12 +17,38 @@ enum class ReportRange(val displayName: String, val monthsBack: Int?) {
     CUSTOM("Custom...", null)
 }
 
+enum class ReportCompareMode(val displayName: String) {
+    OFF("Off"),
+    PREVIOUS("Previous Period"),
+    YEAR_AGO("Year Ago")
+}
+
 data class ReportPeriod(val start: Date, val end: Date) {
     val label: String
         get() {
             val df = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
             return "${df.format(start)} - ${df.format(end)}"
         }
+
+    fun comparisonPeriod(mode: ReportCompareMode): ReportPeriod? {
+        val durationMs = end.time - start.time
+        return when (mode) {
+            ReportCompareMode.OFF -> null
+            ReportCompareMode.PREVIOUS -> ReportPeriod(
+                start = Date(start.time - durationMs - 86_400_000L),
+                end = Date(start.time - 86_400_000L)
+            )
+            ReportCompareMode.YEAR_AGO -> {
+                val cal = Calendar.getInstance()
+                cal.time = start
+                cal.add(Calendar.YEAR, -1)
+                val s = cal.time
+                cal.time = end
+                cal.add(Calendar.YEAR, -1)
+                ReportPeriod(start = s, end = cal.time)
+            }
+        }
+    }
 }
 
 data class ReportSummary(
