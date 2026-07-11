@@ -27,9 +27,10 @@ import com.summit.android.data.entity.*
         SoftDeleteTombstoneEntity::class,
         PlaidAccountLinkEntity::class,
         PlaidTransactionLinkEntity::class,
-        CategoryRuleEntity::class
+        CategoryRuleEntity::class,
+        TransactionAttachmentEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -46,6 +47,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun investmentDao(): InvestmentDao
     abstract fun liabilityDao(): LiabilityDao
     abstract fun softDeleteTombstoneDao(): SoftDeleteTombstoneDao
+    abstract fun transactionAttachmentDao(): TransactionAttachmentDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -60,6 +62,19 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE transactions ADD COLUMN awaitingRefund INTEGER NOT NULL DEFAULT 0")
                 database.execSQL("ALTER TABLE transactions ADD COLUMN refundsTransactionId TEXT")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS transaction_attachments (" +
+                        "id TEXT NOT NULL PRIMARY KEY, " +
+                        "transactionId TEXT NOT NULL, " +
+                        "imageData BLOB NOT NULL, " +
+                        "createdAt INTEGER NOT NULL" +
+                    ")"
+                )
             }
         }
     }

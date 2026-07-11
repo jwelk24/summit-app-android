@@ -41,7 +41,7 @@ fun dayKey(d: Date): String {
 
 class BillCalendarViewModel(application: Application) : AndroidViewModel(application) {
     private val db = Room.databaseBuilder(application, AppDatabase::class.java, "summit-db")
-        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
 
     private val _anchor = MutableStateFlow(
         Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1) }.time

@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import com.summit.android.data.AppDatabase
+import com.summit.android.data.entity.TransactionEntity
 import com.summit.android.service.PDFExporter
 import com.summit.android.service.ReportCompareMode
 import com.summit.android.service.ReportRange
@@ -32,14 +33,16 @@ data class ReportsUiState(
     val sixMonthFlow: List<MonthlyFlow> = emptyList(),
     val currentSummary: ReportSummary? = null,
     val compareSummary: ReportSummary? = null,
-    val compareMode: ReportCompareMode = ReportCompareMode.OFF
+    val compareMode: ReportCompareMode = ReportCompareMode.OFF,
+    val periodTransactions: List<TransactionEntity> = emptyList(),
+    val categoryNames: Map<UUID, String> = emptyMap()
 )
 
 class ReportsViewModel(application: Application) : AndroidViewModel(application) {
     private val db = Room.databaseBuilder(
         application,
         AppDatabase::class.java, "summit-db"
-    ).addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
 
     private val _compareMode = MutableStateFlow(ReportCompareMode.OFF)
 
@@ -97,12 +100,18 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             ReportsService.buildSummary(transactions, it, categoryNames)
         }
 
+        val periodStart = thisMonthPeriod.start
+        val periodEnd = thisMonthPeriod.end
+        val periodTxs = transactions.filter { it.date >= periodStart && it.date <= periodEnd }
+
         ReportsUiState(
             currentMonthSpending = spendingByCat,
             sixMonthFlow = sixMonthFlow,
             currentSummary = currentSummary,
             compareSummary = compareSummary,
-            compareMode = compareMode
+            compareMode = compareMode,
+            periodTransactions = periodTxs,
+            categoryNames = categoryNames
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ReportsUiState())
 

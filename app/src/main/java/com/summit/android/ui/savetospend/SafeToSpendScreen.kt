@@ -28,7 +28,7 @@ import java.util.*
 
 class SafeToSpendViewModel(application: Application) : AndroidViewModel(application) {
     private val db = Room.databaseBuilder(application, AppDatabase::class.java, "summit-db")
-        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
 
     val result: StateFlow<SafeToSpend?> = combine(
         db.accountDao().getAll(),

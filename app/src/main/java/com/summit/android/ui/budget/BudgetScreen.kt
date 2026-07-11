@@ -22,10 +22,6 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetScreen(
-    onManageRules: () -> Unit,
-    onManageAlerts: () -> Unit,
-    onManageSubscriptions: () -> Unit,
-    onCustomizeAppearance: () -> Unit,
     onPaycheckPlan: () -> Unit,
     onBudgetDraft: () -> Unit = {},
     onDebtPayoff: () -> Unit = {},
@@ -81,38 +77,6 @@ fun BudgetScreen(
                                 showMenu = false
                             },
                             leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Smart Alerts") },
-                            onClick = { 
-                                onManageAlerts()
-                                showMenu = false 
-                            },
-                            leadingIcon = { Icon(Icons.Default.NotificationsActive, contentDescription = null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Category Rules") },
-                            onClick = { 
-                                onManageRules()
-                                showMenu = false 
-                            },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Rule, contentDescription = null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Subscriptions") },
-                            onClick = { 
-                                onManageSubscriptions()
-                                showMenu = false 
-                            },
-                            leadingIcon = { Icon(Icons.Default.Repeat, contentDescription = null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Customize Appearance") },
-                            onClick = { 
-                                onCustomizeAppearance()
-                                showMenu = false 
-                            },
-                            leadingIcon = { Icon(Icons.Default.Palette, contentDescription = null) }
                         )
                     }
                 }
@@ -201,20 +165,45 @@ fun CategoryRow(
     onAssignedChange: (BigDecimal) -> Unit
 ) {
     val available = assigned.add(activity)
-    ListItem(
-        headlineContent = { Text(category.name) },
-        supportingContent = { 
-            Text("Activity: ${formatCurrency(activity.toDouble())} · Available: ${formatCurrency(available.toDouble())}")
-        },
-        trailingContent = {
-            OutlinedTextField(
-                value = assigned.toString(),
-                onValueChange = { 
-                    it.toBigDecimalOrNull()?.let { amt -> onAssignedChange(amt) }
-                },
-                modifier = Modifier.width(100.dp),
-                textStyle = MaterialTheme.typography.bodyMedium
-            )
+    val rolloverEnabled = com.summit.android.service.BudgetRollover.isEnabled
+    var showContextMenu by remember { mutableStateOf(false) }
+    val isExcluded = com.summit.android.service.BudgetRollover.isExcluded(category.id)
+
+    Box {
+        ListItem(
+            headlineContent = { Text(category.name) },
+            supportingContent = {
+                Text("Activity: ${formatCurrency(activity.toDouble())} · Available: ${formatCurrency(available.toDouble())}")
+            },
+            trailingContent = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = assigned.toString(),
+                        onValueChange = {
+                            it.toBigDecimalOrNull()?.let { amt -> onAssignedChange(amt) }
+                        },
+                        modifier = Modifier.width(100.dp),
+                        textStyle = MaterialTheme.typography.bodyMedium
+                    )
+                    if (rolloverEnabled) {
+                        IconButton(onClick = { showContextMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Category options")
+                        }
+                    }
+                }
+            }
+        )
+        if (rolloverEnabled) {
+            DropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }) {
+                DropdownMenuItem(
+                    text = { Text(if (isExcluded) "Enable Rollover" else "Exclude from Rollover") },
+                    onClick = {
+                        com.summit.android.service.BudgetRollover.setExcluded(category.id, !isExcluded)
+                        showContextMenu = false
+                    },
+                    leadingIcon = { Icon(Icons.Default.Repeat, contentDescription = null) }
+                )
+            }
         }
-    )
+    }
 }

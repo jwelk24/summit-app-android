@@ -3,6 +3,7 @@ package com.summit.android.ui.reports
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +22,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.summit.android.service.ReportCompareMode
 import com.summit.android.service.ReportRange
+import com.summit.android.service.ReportSummary
 import com.summit.android.ui.reports.viewmodel.CategorySpending
 import com.summit.android.ui.reports.viewmodel.MonthlyFlow
 import com.summit.android.ui.reports.viewmodel.ReportsViewModel
@@ -35,6 +37,7 @@ fun ReportsScreen(viewModel: ReportsViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showExportSheet by remember { mutableStateOf(false) }
+    var drillDownCategory by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -53,6 +56,10 @@ fun ReportsScreen(viewModel: ReportsViewModel = viewModel()) {
                 .padding(padding)
                 .fillMaxSize()
         ) {
+            uiState.currentSummary?.let { summary ->
+                item { ReportsHeroCard(summary) }
+            }
+
             // Compare mode picker (mirrors iOS "Compare to" picker in the range section)
             item {
                 CompareModePicker(
@@ -93,7 +100,11 @@ fun ReportsScreen(viewModel: ReportsViewModel = viewModel()) {
                 }
             } else {
                 items(uiState.currentMonthSpending) { spending ->
-                    SpendingBar(spending, uiState.currentMonthSpending.first().amount)
+                    SpendingBar(
+                        spending = spending,
+                        maxAmount = uiState.currentMonthSpending.first().amount,
+                        onClick = { drillDownCategory = spending.categoryName }
+                    )
                 }
             }
 
@@ -125,6 +136,146 @@ fun ReportsScreen(viewModel: ReportsViewModel = viewModel()) {
                 },
                 viewModel = viewModel
             )
+        }
+    }
+
+    drillDownCategory?.let { categoryName ->
+        uiState.currentSummary?.let { summary ->
+            CategoryTransactionsSheet(
+                categoryName = categoryName,
+                period = summary.period,
+                transactions = uiState.periodTransactions,
+                categoryNames = uiState.categoryNames,
+                onDismiss = { drillDownCategory = null }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CategoryTransactionsSheet(
+    categoryName: String,
+    period: com.summit.android.service.ReportPeriod,
+    transactions: List<com.summit.android.data.entity.TransactionEntity>,
+    categoryNames: Map<UUID, String>,
+    onDismiss: () -> Unit
+) {
+    data class Entry(
+        val id: UUID,
+        val merchant: String,
+        val date: Date,
+        val amount: java.math.BigDecimal,
+        val isRefund: Boolean,
+        val memo: String?
+    )
+
+    val entries = remember(categoryName, transactions) {
+        val result = mutableListOf<Entry>()
+        for (tx in transactions) {
+            if (tx.date < period.start || tx.date > period.end) continue
+            val txCategoryName = categoryNames[tx.categoryId] ?: "Uncategorized"
+            if (tx.amount > java.math.BigDecimal.ZERO && tx.refundsTransactionId != null) {
+                if (txCategoryName == categoryName) {
+                    result.add(Entry(tx.id, tx.merchant, tx.date, tx.amount, isRefund = true, tx.memo))
+                }
+                continue
+            }
+            if (tx.amount >= java.math.BigDecimal.ZERO) continue
+            if (txCategoryName == categoryName) {
+                result.add(Entry(tx.id, tx.merchant, tx.date, tx.amount.abs(), isRefund = false, tx.memo))
+            }
+        }
+        result.sortedByDescending { it.date }
+    }
+
+    val total = entries.fold(java.math.BigDecimal.ZERO) { acc, e ->
+        if (e.isRefund) acc.subtract(e.amount) else acc.add(e.amount)
+    }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 32.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(categoryName, style = MaterialTheme.typography.titleMedium)
+                Text(formatCurrency(total.toDouble()), style = MaterialTheme.typography.titleMedium)
+            }
+            Text(
+                "${entries.size} transaction${if (entries.size == 1) "" else "s"} · ${period.label}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            if (entries.isEmpty()) {
+                Text("No transactions in this range.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                val df = java.text.SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+                entries.forEach { entry ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(entry.merchant, style = MaterialTheme.typography.bodyMedium)
+                            val sub = buildString {
+                                append(df.format(entry.date))
+                                if (entry.isRefund) append(" · Refund")
+                                else if (!entry.memo.isNullOrBlank()) append(" · ${entry.memo}")
+                            }
+                            Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text(
+                            if (entry.isRefund) "-${formatCurrency(entry.amount.toDouble())}" else formatCurrency(entry.amount.toDouble()),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (entry.isRefund) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReportsHeroCard(summary: ReportSummary) {
+    val income = summary.totalIncome.toDouble()
+    val spending = summary.totalSpending.toDouble()
+    val net = income - spending
+    val progress = if (income > 0) (spending / income).toFloat().coerceIn(0f, 1f) else 0f
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Income", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formatCurrency(income), style = MaterialTheme.typography.bodyLarge, color = Color(0xFF10B981))
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Spending", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formatCurrency(spending), style = MaterialTheme.typography.bodyLarge, color = Color(0xFFEF4444))
+                }
+            }
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth(),
+                color = if (progress > 1f) Color(0xFFEF4444) else MaterialTheme.colorScheme.primary
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Net", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    formatCurrency(net),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (net >= 0) Color(0xFF10B981) else Color(0xFFEF4444)
+                )
+            }
         }
     }
 }
@@ -196,12 +347,14 @@ fun ReportsExportContent(
 }
 
 @Composable
-fun SpendingBar(spending: CategorySpending, maxAmount: BigDecimal) {
+fun SpendingBar(spending: CategorySpending, maxAmount: BigDecimal, onClick: (() -> Unit)? = null) {
     val fraction = if (maxAmount > BigDecimal.ZERO) {
         spending.amount.toDouble() / maxAmount.toDouble()
     } else 0.0
 
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Column(modifier = Modifier
+        .padding(horizontal = 16.dp, vertical = 8.dp)
+        .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)) {
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Text(spending.categoryName, style = MaterialTheme.typography.bodyMedium)
             Text(formatCurrency(spending.amount.toDouble()), style = MaterialTheme.typography.bodySmall)

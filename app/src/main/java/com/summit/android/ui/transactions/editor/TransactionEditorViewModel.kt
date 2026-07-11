@@ -7,10 +7,12 @@ import androidx.room.Room
 import com.summit.android.data.AppDatabase
 import com.summit.android.data.entity.AccountEntity
 import com.summit.android.data.entity.CategoryEntity
+import com.summit.android.data.entity.TransactionAttachmentEntity
 import com.summit.android.data.entity.TransactionEntity
 import com.summit.android.service.RuleEngine
 import com.summit.android.service.SpendingTodayManager
 import com.summit.android.data.entity.TransactionSplitEntity
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -27,7 +29,7 @@ class TransactionEditorViewModel(application: Application) : AndroidViewModel(ap
     private val db = Room.databaseBuilder(
         application,
         AppDatabase::class.java, "summit-db"
-    ).addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
 
     val accounts: StateFlow<List<AccountEntity>> = db.accountDao().getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -40,6 +42,31 @@ class TransactionEditorViewModel(application: Application) : AndroidViewModel(ap
 
     private val _splits = MutableStateFlow<List<TransactionSplitDraft>>(emptyList())
     val splits: StateFlow<List<TransactionSplitDraft>> = _splits
+
+    private val _pendingImages = MutableStateFlow<List<ByteArray>>(emptyList())
+    val pendingImages: StateFlow<List<ByteArray>> = _pendingImages
+
+    private val _removedAttachmentIds = MutableStateFlow<Set<UUID>>(emptySet())
+    val removedAttachmentIds: StateFlow<Set<UUID>> = _removedAttachmentIds
+
+    fun existingAttachments(transactionId: UUID): Flow<List<TransactionAttachmentEntity>> =
+        db.transactionAttachmentDao().getForTransaction(transactionId)
+
+    fun addPendingImage(bytes: ByteArray) {
+        _pendingImages.value = _pendingImages.value + bytes
+    }
+
+    fun removePendingImage(index: Int) {
+        val current = _pendingImages.value.toMutableList()
+        if (index in current.indices) {
+            current.removeAt(index)
+            _pendingImages.value = current
+        }
+    }
+
+    fun removeExistingAttachment(id: UUID) {
+        _removedAttachmentIds.value = _removedAttachmentIds.value + id
+    }
 
     fun loadTransaction(id: UUID) {
         viewModelScope.launch {
@@ -140,6 +167,17 @@ class TransactionEditorViewModel(application: Application) : AndroidViewModel(ap
                 }
                 db.transactionDao().insertSplits(splitEntities)
             }
+
+            for (id in _removedAttachmentIds.value) {
+                db.transactionAttachmentDao().deleteById(id)
+            }
+            for (bytes in _pendingImages.value) {
+                db.transactionAttachmentDao().insert(
+                    TransactionAttachmentEntity(transactionId = transactionId, imageData = bytes)
+                )
+            }
+            _pendingImages.value = emptyList()
+            _removedAttachmentIds.value = emptySet()
 
             SpendingTodayManager.startOrUpdate(getApplication())
             onSuccess()

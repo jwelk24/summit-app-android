@@ -50,6 +50,7 @@ import com.summit.android.ui.budget.BudgetDraftScreen
 import com.summit.android.ui.debt.DebtPayoffScreen
 import com.summit.android.ui.settleup.SettleUpScreen
 import com.summit.android.ui.tax.TaxPackScreen
+import com.summit.android.ui.settings.SettingsScreen
 
 @Composable
 fun MainScreen() {
@@ -99,10 +100,6 @@ fun MainScreen() {
         ) {
             composable(Screen.Budget.route) {
                 BudgetScreen(
-                    onManageRules = { navController.navigate(Screen.CategoryRules.route) },
-                    onManageAlerts = { navController.navigate(Screen.SmartAlerts.route) },
-                    onManageSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
-                    onCustomizeAppearance = { navController.navigate(Screen.CustomizeAppearance.route) },
                     onPaycheckPlan = { navController.navigate(Screen.PaycheckPlan.route) },
                     onBudgetDraft = { navController.navigate(Screen.BudgetDraft.route) },
                     onDebtPayoff = { navController.navigate(Screen.DebtPayoff.route) },
@@ -241,6 +238,16 @@ fun MainScreen() {
                 TaxPackScreen(
                     onBack = { navController.popBackStack() },
                     onUpgrade = { navController.navigate(Screen.Paywall.route) }
+                )
+            }
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    onSyncAccount = { navController.navigate(Screen.PlaidConnections.route) },
+                    onSettleUp = { navController.navigate(Screen.SettleUp.route) },
+                    onCategoryRules = { navController.navigate(Screen.CategoryRules.route) },
+                    onSmartAlerts = { navController.navigate(Screen.SmartAlerts.route) },
+                    onSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
+                    onCustomizeAppearance = { navController.navigate(Screen.CustomizeAppearance.route) }
                 )
             }
             composable(

@@ -244,13 +244,25 @@ fun SignInForm() {
     val scope = rememberCoroutineScope()
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        TabRow(selectedTabIndex = if (mode == AuthMode.SIGN_IN) 0 else 1) {
-            Tab(selected = mode == AuthMode.SIGN_IN, onClick = { mode = AuthMode.SIGN_IN }) {
-                Text("Sign In", modifier = Modifier.padding(16.dp))
+        if (mode != AuthMode.FORGOT_PASSWORD) {
+            TabRow(selectedTabIndex = if (mode == AuthMode.SIGN_IN) 0 else 1) {
+                Tab(selected = mode == AuthMode.SIGN_IN, onClick = { 
+                    mode = AuthMode.SIGN_IN 
+                    errorMessage = null
+                    infoMessage = null
+                }) {
+                    Text("Sign In", modifier = Modifier.padding(16.dp))
+                }
+                Tab(selected = mode == AuthMode.SIGN_UP, onClick = { 
+                    mode = AuthMode.SIGN_UP 
+                    errorMessage = null
+                    infoMessage = null
+                }) {
+                    Text("Sign Up", modifier = Modifier.padding(16.dp))
+                }
             }
-            Tab(selected = mode == AuthMode.SIGN_UP, onClick = { mode = AuthMode.SIGN_UP }) {
-                Text("Sign Up", modifier = Modifier.padding(16.dp))
-            }
+        } else {
+            Text("Reset Password", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -261,14 +273,17 @@ fun SignInForm() {
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
-        )
+        
+        if (mode != AuthMode.FORGOT_PASSWORD) {
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         errorMessage?.let {
             Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
@@ -286,33 +301,62 @@ fun SignInForm() {
                     errorMessage = null
                     infoMessage = null
                     try {
-                        if (mode == AuthMode.SIGN_IN) {
-                            AuthService.signIn(email, password)
-                        } else {
-                            AuthService.signUp(email, password)
-                            infoMessage = "Check your email to confirm your account."
-                            mode = AuthMode.SIGN_IN
+                        when (mode) {
+                            AuthMode.SIGN_IN -> {
+                                AuthService.signIn(email, password)
+                            }
+                            AuthMode.SIGN_UP -> {
+                                AuthService.signUp(email, password)
+                                infoMessage = "Confirmation email sent! Please check your inbox and spam folder."
+                            }
+                            AuthMode.FORGOT_PASSWORD -> {
+                                AuthService.sendPasswordReset(email)
+                                infoMessage = "Password reset email sent!"
+                                mode = AuthMode.SIGN_IN
+                            }
                         }
                     } catch (e: Exception) {
-                        errorMessage = e.localizedMessage
+                        errorMessage = e.localizedMessage ?: "An error occurred"
                     } finally {
                         isWorking = false
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isWorking && email.isNotEmpty() && password.length >= 6
+            enabled = !isWorking && email.isNotEmpty() && (mode == AuthMode.FORGOT_PASSWORD || password.length >= 6)
         ) {
             if (isWorking) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
             } else {
-                Text(if (mode == AuthMode.SIGN_IN) "Sign In" else "Create Account")
+                Text(when (mode) {
+                    AuthMode.SIGN_IN -> "Sign In"
+                    AuthMode.SIGN_UP -> "Create Account"
+                    AuthMode.FORGOT_PASSWORD -> "Send Reset Link"
+                })
+            }
+        }
+
+        if (mode == AuthMode.SIGN_IN) {
+            TextButton(onClick = { 
+                mode = AuthMode.FORGOT_PASSWORD 
+                errorMessage = null
+                infoMessage = null
+            }) {
+                Text("Forgot Password?")
+            }
+        } else {
+            TextButton(onClick = { 
+                mode = AuthMode.SIGN_IN 
+                errorMessage = null
+                infoMessage = null
+            }) {
+                Text("Back to Sign In")
             }
         }
     }
 }
 
-enum class AuthMode { SIGN_IN, SIGN_UP }
+enum class AuthMode { SIGN_IN, SIGN_UP, FORGOT_PASSWORD }
 
 @Composable
 fun LockedFeatureCard(feature: PremiumFeature, onUpgrade: () -> Unit) {

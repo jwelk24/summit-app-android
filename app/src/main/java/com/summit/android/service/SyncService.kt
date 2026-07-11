@@ -264,7 +264,7 @@ object SyncService {
         val household = HouseholdService.currentHousehold.value ?: return
         _isSyncing.value = true
         try {
-            val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+            val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
             val householdIdStr = household.id.toString().lowercase()
             val canWrite = HouseholdService.currentRole.value?.canWrite ?: false
 

@@ -16,7 +16,7 @@ class BudgetEngine(context: Context) {
     private val db = Room.databaseBuilder(
         context.applicationContext,
         AppDatabase::class.java, "summit-db"
-    ).addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+    ).addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
 
     // MARK: - Pure calculations
 
@@ -91,6 +91,7 @@ class BudgetEngine(context: Context) {
         val transactions = db.transactionDao().getAll().first()
         val categories = db.categoryDao().getCategoriesList()
         for (category in categories) {
+            if (BudgetRollover.isExcluded(category.id)) continue
             val avail = available(category, prevMonthEntity, prevYear, prevMonth)
             if (avail == BigDecimal.ZERO) continue
             val existing = db.budgetDao().getAllocation(newMonth.id, category.id)
@@ -574,6 +575,7 @@ class BudgetEngine(context: Context) {
 
 object BudgetRollover {
     private const val KEY = "budgetRolloverEnabled"
+    private const val KEY_EXCLUDED = "budgetRolloverExcludedCategoryIDs"
 
     var isEnabled: Boolean
         get() = prefs?.getBoolean(KEY, false) ?: false
@@ -583,5 +585,16 @@ object BudgetRollover {
 
     fun init(context: android.content.Context) {
         prefs = context.getSharedPreferences("summit_prefs", android.content.Context.MODE_PRIVATE)
+    }
+
+    fun isExcluded(categoryId: java.util.UUID): Boolean {
+        val raw = prefs?.getStringSet(KEY_EXCLUDED, emptySet()) ?: return false
+        return raw.contains(categoryId.toString())
+    }
+
+    fun setExcluded(categoryId: java.util.UUID, excluded: Boolean) {
+        val current = prefs?.getStringSet(KEY_EXCLUDED, emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (excluded) current.add(categoryId.toString()) else current.remove(categoryId.toString())
+        prefs?.edit()?.putStringSet(KEY_EXCLUDED, current)?.apply()
     }
 }

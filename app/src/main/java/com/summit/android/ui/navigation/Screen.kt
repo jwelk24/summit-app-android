@@ -36,6 +36,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object SettleUp : Screen("settle_up", "Settle Up", Icons.Default.People)
     object TaxPack : Screen("tax_pack", "Tax Pack", Icons.Default.Receipt)
     object CashFlowForecast : Screen("forecast", "Cash Flow Forecast", Icons.Default.WaterfallChart)
+    object Settings : Screen("settings", "Settings", Icons.Default.Settings)
 }
 
 val bottomNavItems = listOf(
@@ -44,5 +45,6 @@ val bottomNavItems = listOf(
     Screen.NetWorth,
     Screen.Horizon,
     Screen.Reports,
-    Screen.Insights
+    Screen.Insights,
+    Screen.Settings
 )

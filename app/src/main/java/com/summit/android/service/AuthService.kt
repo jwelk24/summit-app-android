@@ -10,9 +10,16 @@ object AuthService {
     private val auth = SupabaseService.client.auth
 
     suspend fun signUp(email: String, password: String) {
-        auth.signUpWith(Email) {
-            this.email = email
-            this.password = password
+        println("AuthService: Starting signUp for $email")
+        try {
+            auth.signUpWith(Email) {
+                this.email = email
+                this.password = password
+            }
+            println("AuthService: signUp successful")
+        } catch (e: Exception) {
+            println("AuthService: signUp failed: ${e.message}")
+            throw e
         }
     }
 
@@ -35,7 +42,14 @@ object AuthService {
     }
 
     suspend fun sendPasswordReset(email: String) {
-        auth.resetPasswordForEmail(email)
+        println("AuthService: Sending password reset to $email")
+        try {
+            auth.resetPasswordForEmail(email)
+            println("AuthService: Password reset sent")
+        } catch (e: Exception) {
+            println("AuthService: Password reset failed: ${e.message}")
+            throw e
+        }
     }
 
     suspend fun signInWithApple(idToken: String, nonce: String) {

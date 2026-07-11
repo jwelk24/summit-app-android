@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.summit.android.data.entity.TransactionAttachmentEntity
+import kotlinx.coroutines.flow.flowOf
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.summit.android.billing.SubscriptionTier
 import com.summit.android.billing.PremiumManager
@@ -48,7 +50,12 @@ fun TransactionEditorScreen(
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val editingTransaction by viewModel.editingTransaction.collectAsStateWithLifecycle()
     val splits by viewModel.splits.collectAsStateWithLifecycle()
-    
+    val pendingImages by viewModel.pendingImages.collectAsStateWithLifecycle()
+    val removedAttachmentIds by viewModel.removedAttachmentIds.collectAsStateWithLifecycle()
+
+    val existingAttachments by (transactionId?.let { viewModel.existingAttachments(it) }
+        ?: flowOf(emptyList<TransactionAttachmentEntity>())).collectAsStateWithLifecycle(emptyList())
+
     val currentTier by PremiumManager.currentTier.collectAsStateWithLifecycle()
 
     var merchant by remember { mutableStateOf("") }
@@ -309,6 +316,17 @@ fun TransactionEditorScreen(
                         }
                     }
                 }
+            }
+
+            item {
+                TransactionAttachmentsSection(
+                    existing = existingAttachments,
+                    pendingImages = pendingImages,
+                    removedIds = removedAttachmentIds,
+                    onAddPending = { viewModel.addPendingImage(it) },
+                    onRemovePending = { viewModel.removePendingImage(it) },
+                    onRemoveExisting = { viewModel.removeExistingAttachment(it) }
+                )
             }
 
             item {

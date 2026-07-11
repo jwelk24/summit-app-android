@@ -123,7 +123,7 @@ object SmartAlertsService {
     }
 
     private suspend fun runBudgetChecks(context: Context, year: Int, month: Int): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
         val budgetMonth = db.budgetDao().getMonth(year, month) ?: return 0
         val categories = db.categoryDao().getCategories().first()
         val threshold = getBudgetThreshold(context)
@@ -157,7 +157,7 @@ object SmartAlertsService {
     }
 
     private suspend fun runUnusualChargeChecks(context: Context): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.DAY_OF_YEAR, -1)
         val cutoff = calendar.time
@@ -190,7 +190,7 @@ object SmartAlertsService {
     }
 
     private suspend fun runBillReminderChecks(context: Context): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
         val cal = Calendar.getInstance()
         val today = cal.apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.time
         val horizon = Calendar.getInstance().apply { time = today; add(Calendar.DAY_OF_YEAR, 45) }.time
@@ -228,7 +228,7 @@ object SmartAlertsService {
     }
 
     private suspend fun runPriceChangeChecks(context: Context): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
         val transactions = db.transactionDao().getAll().first()
         val changes = SubscriptionTracker.detectPriceChanges(transactions)
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -251,7 +251,7 @@ object SmartAlertsService {
     }
 
     private suspend fun runLowBalanceCheck(context: Context): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
         val accounts = db.accountDao().getAll().first()
         if (accounts.none { it.type == AccountType.CHECKING || it.type == AccountType.SAVINGS }) return 0
 
@@ -306,7 +306,7 @@ object SmartAlertsService {
     }
 
     private suspend fun runAnomalyChecks(context: Context): Int {
-        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+        val db = Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "summit-db").addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
         val allTx = db.transactionDao().getAll().first()
             .filter { it.amount < BigDecimal.ZERO }  // spending only
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
