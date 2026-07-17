@@ -8,12 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AssignmentReturn
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DocumentScanner
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -42,9 +38,13 @@ fun TransactionsScreen(
     onScanReceipt: () -> Unit,
     onUpgrade: () -> Unit,
     onRefundTracker: () -> Unit,
+    onReviewInbox: () -> Unit = {},
     viewModel: TransactionsViewModel = viewModel()
 ) {
     val transactions by viewModel.transactions.collectAsState()
+    val reviewCount = remember(transactions) {
+        com.summit.android.ui.inbox.ReviewQueue.pending(transactions).size
+    }
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     
     val pullToRefreshState = rememberPullToRefreshState()
@@ -88,6 +88,13 @@ fun TransactionsScreen(
                             onClick = { onRefundTracker(); showAddMenu = false },
                             leadingIcon = { Icon(Icons.Default.AssignmentReturn, contentDescription = null) }
                         )
+                        if (reviewCount > 0) {
+                            DropdownMenuItem(
+                                text = { Text("Review Inbox ($reviewCount)") },
+                                onClick = { onReviewInbox(); showAddMenu = false },
+                                leadingIcon = { Icon(Icons.Default.Inbox, contentDescription = null) }
+                            )
+                        }
                     }
                 }
             )
@@ -103,6 +110,11 @@ fun TransactionsScreen(
                 )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    if (reviewCount > 0) {
+                        item {
+                            ReviewInboxBanner(count = reviewCount, onClick = onReviewInbox)
+                        }
+                    }
                     items(transactions, key = { it.id }) { transaction ->
                         SwipeToDeleteRow(
                             onDelete = { viewModel.deleteTransaction(transaction) },
@@ -215,4 +227,39 @@ fun TransactionRow(transaction: TransactionEntity, modifier: Modifier = Modifier
 fun formatCurrency(amount: Double): String {
     val format = NumberFormat.getCurrencyInstance(Locale.US)
     return format.format(amount)
+}
+
+@Composable
+fun ReviewInboxBanner(count: Int, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.Inbox, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(
+                    "$count transaction${if (count == 1) "" else "s"} to review",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Icon(Icons.Default.ChevronRight, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+    }
 }

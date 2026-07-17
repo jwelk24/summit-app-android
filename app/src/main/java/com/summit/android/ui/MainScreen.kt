@@ -51,11 +51,26 @@ import com.summit.android.ui.debt.DebtPayoffScreen
 import com.summit.android.ui.settleup.SettleUpScreen
 import com.summit.android.ui.tax.TaxPackScreen
 import com.summit.android.ui.settings.SettingsScreen
+import com.summit.android.ui.inbox.ReviewInboxScreen
+import com.summit.android.ui.onboarding.OnboardingState
+import com.summit.android.ui.onboarding.OnboardingWelcomeScreen
+import com.summit.android.ui.reports.MonthRecapScreen
+import com.summit.android.ui.tour.FeatureGuideScreen
+import com.summit.android.ui.tour.FeatureTourCard
+import com.summit.android.ui.tour.FeatureTourState
+import com.summit.android.ui.tour.tourStops
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
-    
+    val tourActive by FeatureTourState.isActive.collectAsState()
+    val tourStop by FeatureTourState.currentStop.collectAsState()
+    var showOnboarding by remember { mutableStateOf(!OnboardingState.hasCompletedWelcome) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         bottomBar = {
             val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -104,7 +119,12 @@ fun MainScreen() {
                     onBudgetDraft = { navController.navigate(Screen.BudgetDraft.route) },
                     onDebtPayoff = { navController.navigate(Screen.DebtPayoff.route) },
                     onSettleUp = { navController.navigate(Screen.SettleUp.route) },
-                    onTaxPack = { navController.navigate(Screen.TaxPack.route) }
+                    onTaxPack = { navController.navigate(Screen.TaxPack.route) },
+                    onAddTransaction = { navController.navigate(Screen.TransactionEditor.route) },
+                    onGoToNetWorth = { navController.navigate(Screen.NetWorth.route) },
+                    onConnectBank = { navController.navigate(Screen.PlaidConnections.route) },
+                    onTakeTour = { FeatureTourState.start() },
+                    onOpenSettings = { navController.navigate(Screen.Settings.route) }
                 )
             }
             composable(Screen.Transactions.route) {
@@ -113,7 +133,8 @@ fun MainScreen() {
                     onEditTransaction = { txId -> navController.navigate("${Screen.TransactionEditor.route}/$txId") },
                     onScanReceipt = { navController.navigate(Screen.ReceiptScanner.route) },
                     onUpgrade = { navController.navigate(Screen.Paywall.route) },
-                    onRefundTracker = { navController.navigate(Screen.RefundTracker.route) }
+                    onRefundTracker = { navController.navigate(Screen.RefundTracker.route) },
+                    onReviewInbox = { navController.navigate(Screen.ReviewInbox.route) }
                 )
             }
             composable(Screen.ReceiptScanner.route) {
@@ -247,8 +268,28 @@ fun MainScreen() {
                     onCategoryRules = { navController.navigate(Screen.CategoryRules.route) },
                     onSmartAlerts = { navController.navigate(Screen.SmartAlerts.route) },
                     onSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
-                    onCustomizeAppearance = { navController.navigate(Screen.CustomizeAppearance.route) }
+                    onCustomizeAppearance = { navController.navigate(Screen.CustomizeAppearance.route) },
+                    onFeatureGuide = { navController.navigate(Screen.FeatureGuide.route) }
                 )
+            }
+            composable(Screen.ReviewInbox.route) {
+                ReviewInboxScreen(
+                    onBack = { navController.popBackStack() },
+                    onEditTransaction = { txId -> navController.navigate("${Screen.TransactionEditor.route}/$txId") }
+                )
+            }
+            composable(Screen.FeatureGuide.route) {
+                FeatureGuideScreen(
+                    onBack = { navController.popBackStack() },
+                    onStartTour = {
+                        navController.popBackStack()
+                        FeatureTourState.start()
+                    },
+                    onNavigateToTab = { route -> navController.navigate(route) }
+                )
+            }
+            composable(Screen.MonthRecap.route) {
+                MonthRecapScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "${Screen.TransactionEditor.route}/{transactionId}",
@@ -272,7 +313,48 @@ fun MainScreen() {
                 )
             }
         }
+    } // end Scaffold
+
+    if (tourActive && tourStop < tourStops.size) {
+        val stop = tourStops[tourStop]
+        LaunchedEffect(tourStop) {
+            navController.navigate(stop.route) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Box(modifier = Modifier.padding(16.dp)) {
+                FeatureTourCard(
+                    index = tourStop,
+                    onAdvance = { next -> FeatureTourState.advance(next) },
+                    onFinish = { FeatureTourState.finish() },
+                    onClose = { FeatureTourState.close() }
+                )
+            }
+        }
     }
+
+    if (showOnboarding) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            OnboardingWelcomeScreen(
+                onFinish = {
+                    OnboardingState.hasCompletedWelcome = true
+                    showOnboarding = false
+                },
+                onConnectBank = {
+                    OnboardingState.hasCompletedWelcome = true
+                    showOnboarding = false
+                    navController.navigate(Screen.PlaidConnections.route)
+                }
+            )
+        }
+    }
+    } // end outer Box
 }
 
 @Composable

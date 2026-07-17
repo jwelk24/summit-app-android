@@ -3,6 +3,7 @@ package com.summit.android.data.dao
 import androidx.room.*
 import com.summit.android.data.entity.PlaidAccountLinkEntity
 import com.summit.android.data.entity.PlaidTransactionLinkEntity
+import kotlinx.coroutines.flow.Flow
 import java.util.*
 
 @Dao
@@ -27,6 +28,9 @@ interface PlaidLinkDao {
 
     @Query("SELECT * FROM plaid_account_links")
     suspend fun getAllAccountLinks(): List<PlaidAccountLinkEntity>
+
+    @Query("SELECT COUNT(*) FROM plaid_account_links")
+    fun getAccountLinkCountFlow(): Flow<Int>
 
     @Query("SELECT * FROM plaid_transaction_links")
     suspend fun getAllTransactionLinks(): List<PlaidTransactionLinkEntity>

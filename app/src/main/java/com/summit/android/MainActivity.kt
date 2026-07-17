@@ -22,12 +22,16 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
 import com.summit.android.ui.theme.ThemeManager
+import com.summit.android.service.EngagementNudgesService
+import com.summit.android.ui.onboarding.OnboardingState
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         ThemeManager.init(this)
+        OnboardingState.init(this)
+        EngagementNudgesService.init(this)
         requestNotificationPermission()
         SpendingTodayManager.startOrUpdate(this)
 

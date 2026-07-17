@@ -37,6 +37,9 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object TaxPack : Screen("tax_pack", "Tax Pack", Icons.Default.Receipt)
     object CashFlowForecast : Screen("forecast", "Cash Flow Forecast", Icons.Default.WaterfallChart)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
+    object ReviewInbox : Screen("review_inbox", "Review", Icons.Default.Inbox)
+    object FeatureGuide : Screen("feature_guide", "Feature Guide", Icons.Default.Map)
+    object MonthRecap : Screen("month_recap", "Month Recap", Icons.Default.CalendarMonth)
 }
 
 val bottomNavItems = listOf(

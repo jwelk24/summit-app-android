@@ -20,7 +20,9 @@ data class BudgetUiState(
     val selectedDate: Date = Date(),
     val allocations: Map<UUID, BigDecimal> = emptyMap(),
     val activity: Map<UUID, BigDecimal> = emptyMap(),
-    val ageOfMoney: Int? = null
+    val ageOfMoney: Int? = null,
+    val transactionCount: Int = 0,
+    val hasPlaidConnection: Boolean = false
 )
 
 class BudgetViewModel(application: Application) : AndroidViewModel(application) {
@@ -34,13 +36,16 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     private val _selectedYear = MutableStateFlow(Calendar.getInstance().get(Calendar.YEAR))
     private val _selectedMonth = MutableStateFlow(Calendar.getInstance().get(Calendar.MONTH) + 1)
 
+    private val _yearMonth = combine(_selectedYear, _selectedMonth) { y, m -> Pair(y, m) }
+
     val uiState: StateFlow<BudgetUiState> = combine(
         db.categoryDao().getGroups(),
         db.categoryDao().getCategories(),
         db.transactionDao().getAll(),
-        _selectedYear,
-        _selectedMonth
-    ) { groups, categories, transactions, year, month ->
+        db.plaidLinkDao().getAccountLinkCountFlow(),
+        _yearMonth
+    ) { groups, categories, transactions, plaidCount, yearMonth ->
+        val (year, month) = yearMonth
         val budgetMonth = engine.ensureMonth(year, month)
         val allocs = db.budgetDao().getAllocationsForMonth(budgetMonth.id).first()
         val allocationMap = mutableMapOf<UUID, BigDecimal>()
@@ -65,7 +70,9 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
             selectedDate = cal.time,
             allocations = allocationMap,
             activity = activityMap,
-            ageOfMoney = BudgetEngine.ageOfMoneyDays(transactions)
+            ageOfMoney = BudgetEngine.ageOfMoneyDays(transactions),
+            transactionCount = transactions.size,
+            hasPlaidConnection = plaidCount > 0
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BudgetUiState())
 

@@ -21,6 +21,14 @@
             </intent-filter>
         </activity>
 
+        <receiver android:name=".service.EngagementNudgesReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.summit.android.NUDGE_WEEKLY" />
+                <action android:name="com.summit.android.NUDGE_MONTHLY" />
+            </intent-filter>
+        </receiver>
+
         <receiver android:name=".widget.NetWorthWidgetReceiver"
             android:exported="false">
             <intent-filter>

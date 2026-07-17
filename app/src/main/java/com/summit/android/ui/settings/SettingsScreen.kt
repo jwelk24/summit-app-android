@@ -19,7 +19,8 @@ fun SettingsScreen(
     onCategoryRules: () -> Unit,
     onSmartAlerts: () -> Unit,
     onSubscriptions: () -> Unit,
-    onCustomizeAppearance: () -> Unit
+    onCustomizeAppearance: () -> Unit,
+    onFeatureGuide: () -> Unit = {}
 ) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Settings") }) }
@@ -49,6 +50,10 @@ fun SettingsScreen(
             item { SettingsSectionHeader("Appearance") }
             item {
                 SettingsRow("Customize Tabs & Colors", Icons.Default.Palette, onCustomizeAppearance)
+            }
+            item { SettingsSectionHeader("Help") }
+            item {
+                SettingsRow("Feature Guide", Icons.Default.Map, onFeatureGuide)
             }
         }
     }

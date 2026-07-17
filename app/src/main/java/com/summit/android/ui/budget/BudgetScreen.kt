@@ -27,6 +27,12 @@ fun BudgetScreen(
     onDebtPayoff: () -> Unit = {},
     onSettleUp: () -> Unit = {},
     onTaxPack: () -> Unit = {},
+    onAddTransaction: () -> Unit = {},
+    onGoToNetWorth: () -> Unit = {},
+    onConnectBank: () -> Unit = {},
+    onTakeTour: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    isAuthenticated: Boolean = false,
     viewModel: BudgetViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -93,6 +99,18 @@ fun BudgetScreen(
             AvailableToBudget(uiState.availableToBudget)
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
+                item {
+                    GettingStartedSection(
+                        transactionCount = uiState.transactionCount,
+                        hasPlaidConnection = uiState.hasPlaidConnection,
+                        isAuthenticated = isAuthenticated,
+                        onTakeTour = onTakeTour,
+                        onGoToNetWorth = onGoToNetWorth,
+                        onAddTransaction = onAddTransaction,
+                        onConnectBank = onConnectBank,
+                        onOpenSettings = onOpenSettings
+                    )
+                }
                 uiState.groups.forEach { group ->
                     item {
                         GroupHeader(group.name)
