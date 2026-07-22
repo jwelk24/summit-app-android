@@ -8,6 +8,7 @@ import com.summit.android.data.AppDatabase
 import com.summit.android.data.entity.CategoryEntity
 import com.summit.android.data.entity.CategoryGroupEntity
 import com.summit.android.service.BudgetEngine
+import com.summit.android.service.GoalForecast
 import com.summit.android.ui.budget.CategoryTileData
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -83,12 +84,29 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
         val totalSpent = totalActivity.abs()
         val insight = buildInsight(available, totalAssigned, totalSpent, income)
         val tiles = categories.take(8).mapIndexed { idx, cat ->
+            val catAssigned = allocationMap[cat.id] ?: BigDecimal.ZERO
+            val catActivity = activityMap[cat.id] ?: BigDecimal.ZERO
+            val catSpent = catActivity.abs()
+            val availableNow = catAssigned + catActivity
+            val goal = db.goalDao().getGoalForCategory(cat.id)
+            val avgMonthly = engine.averageAssigned(cat, 3, year, month)
+            val goalPace = goal?.let {
+                GoalForecast.pace(
+                    goal = it,
+                    assignedThisMonth = catAssigned,
+                    availableNow = availableNow,
+                    avgMonthlyAssigned = avgMonthly,
+                    currentYear = year,
+                    currentMonth = month
+                )
+            }
             CategoryTileData(
                 id = cat.id,
                 name = cat.name,
-                spent = (activityMap[cat.id] ?: BigDecimal.ZERO).abs(),
-                budget = allocationMap[cat.id] ?: BigDecimal.ZERO,
-                index = idx
+                spent = catSpent,
+                budget = catAssigned,
+                index = idx,
+                goalPace = goalPace
             )
         }.filter { it.budget > BigDecimal.ZERO }
 

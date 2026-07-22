@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.summit.android.service.GoalPace
 import com.summit.android.ui.theme.SummitColors
 import com.summit.android.ui.theme.summitCategoryEmoji
 import com.summit.android.ui.transactions.formatCurrency
@@ -46,7 +47,8 @@ data class CategoryTileData(
     val spent: BigDecimal,
     val budget: BigDecimal,
     val index: Int,
-    val customColor: Color? = null
+    val customColor: Color? = null,
+    val goalPace: GoalPace? = null
 )
 
 @Composable
@@ -297,6 +299,10 @@ private fun SummitCategoryTileCard(
                 )
                 Spacer(Modifier.height(4.dp))
                 SummitGradientBar(fraction = fraction, height = 3, tint = accent)
+                if (tile.goalPace != null) {
+                    Spacer(Modifier.height(5.dp))
+                    SummitPacePill(pace = tile.goalPace)
+                }
             }
             // Accent bottom bar
             Box(

@@ -38,6 +38,8 @@ fun BudgetScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showMenu by remember { mutableStateOf(false) }
+    var selectedTileId by remember { mutableStateOf<java.util.UUID?>(null) }
+    var selectedTileName by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -120,7 +122,14 @@ fun BudgetScreen(
                         netWorthTrend = uiState.netWorthTrend,
                         tiles = uiState.categoryTiles,
                         insight = uiState.insight,
-                        onInsightClick = { /* navigate to Insights tab handled by parent */ }
+                        onInsightClick = { /* navigate to Insights tab handled by parent */ },
+                        onTileClick = { id ->
+                            val tile = uiState.categoryTiles.find { it.id == id }
+                            if (tile != null) {
+                                selectedTileName = tile.name
+                                selectedTileId = id
+                            }
+                        }
                     )
                 }
                 uiState.groups.forEach { group ->
@@ -138,6 +147,18 @@ fun BudgetScreen(
                 }
             }
         }
+    }
+
+    selectedTileId?.let { id ->
+        val cal = java.util.Calendar.getInstance()
+        cal.time = uiState.selectedDate
+        CategoryDetailSheet(
+            categoryId = id,
+            categoryName = selectedTileName,
+            year = cal.get(java.util.Calendar.YEAR),
+            month = cal.get(java.util.Calendar.MONTH) + 1,
+            onDismiss = { selectedTileId = null }
+        )
     }
 }
 
