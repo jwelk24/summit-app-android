@@ -1,11 +1,22 @@
 package com.summit.android.service
 
+import android.content.Context
+
 /**
  * Tidies raw bank/card merchant descriptors for display — entirely on-device,
  * no network. Non-destructive: only used for presentation; stored merchant
  * strings are never changed so search and sync stay intact.
  */
 object MerchantCleaner {
+
+    private const val PREFS = "summit_prefs"
+    private const val KEY_ENABLED = "merchantCleaner.enabled"
+
+    fun isEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, true)
+
+    fun setEnabled(context: Context, enabled: Boolean) =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, enabled).apply()
 
     private val prefixes = listOf(
         "SQ *", "SQ*", "TST* ", "TST*", "SP *", "SP* ", "PY *", "IN *",

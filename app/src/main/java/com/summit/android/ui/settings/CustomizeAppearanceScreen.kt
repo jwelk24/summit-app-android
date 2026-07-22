@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.summit.android.service.MerchantCleaner
 import com.summit.android.ui.theme.ThemeManager
 
 val presetColors = listOf(
@@ -37,6 +38,7 @@ fun CustomizeAppearanceScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val customAccent by ThemeManager.accentColor.collectAsState()
     val customBackground by ThemeManager.backgroundColor.collectAsState()
+    var merchantCleanupEnabled by remember { mutableStateOf(MerchantCleaner.isEnabled(context)) }
 
     Scaffold(
         topBar = {
@@ -75,6 +77,25 @@ fun CustomizeAppearanceScreen(onBack: () -> Unit) {
                 )
             }
             
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Transactions", style = MaterialTheme.typography.titleMedium)
+                    ListItem(
+                        headlineContent = { Text("Tidy up merchant names") },
+                        supportingContent = { Text("Strips bank prefixes and normalizes known brands for display.") },
+                        trailingContent = {
+                            Switch(
+                                checked = merchantCleanupEnabled,
+                                onCheckedChange = {
+                                    merchantCleanupEnabled = it
+                                    MerchantCleaner.setEnabled(context, it)
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+
             item { Spacer(modifier = Modifier.height(40.dp)) }
         }
     }

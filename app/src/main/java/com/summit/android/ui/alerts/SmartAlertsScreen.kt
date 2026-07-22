@@ -4,12 +4,19 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.summit.android.ui.transactions.formatCurrency
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,7 +71,61 @@ fun SmartAlertsScreen(
                     enabled = uiState.lowBalanceEnabled,
                     onToggle = { viewModel.toggleLowBalance() }
                 )
+                // Inline forecast card
+                uiState.projectedLowDate?.let { date ->
+                    val balance = uiState.projectedLowBalance
+                    val df = SimpleDateFormat("MMM d", Locale.getDefault())
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFB7791F))
+                            Column {
+                                Text(
+                                    "Balance may dip ${if (balance != null) "to ${formatCurrency(balance.toDouble())} " else ""}on ${df.format(date)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF92400E)
+                                )
+                                Text(
+                                    "Based on your scheduled bills and current balance.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF92400E)
+                                )
+                            }
+                        }
+                    }
+                }
                 HorizontalDivider()
+            }
+
+            // Price changes visible in-app (all tiers) when detected
+            if (uiState.priceChanges.isNotEmpty()) {
+                item {
+                    SectionHeader("Subscription Price Changes")
+                    uiState.priceChanges.forEach { change ->
+                        ListItem(
+                            leadingContent = {
+                                Icon(
+                                    if (change.isIncrease) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                                    contentDescription = null,
+                                    tint = if (change.isIncrease) Color(0xFFEF4444) else Color(0xFF10B981)
+                                )
+                            },
+                            headlineContent = { Text(change.merchant) },
+                            supportingContent = {
+                                val verb = if (change.isIncrease) "↑" else "↓"
+                                Text("$verb ${formatCurrency(change.oldAmount.toDouble())} → ${formatCurrency(change.newAmount.toDouble())}")
+                            }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
+                    }
+                }
             }
 
             if (!uiState.isPremium) {

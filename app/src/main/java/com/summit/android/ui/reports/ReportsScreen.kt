@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -269,6 +270,8 @@ fun ReportsHeroCard(summary: ReportSummary) {
     val income = summary.totalIncome.toDouble()
     val spending = summary.totalSpending.toDouble()
     val net = income - spending
+    val isPositive = net >= 0
+    val netColor = if (isPositive) Color(0xFF10B981) else Color(0xFFEF4444)
     val progress = if (income > 0) (spending / income).toFloat().coerceIn(0f, 1f) else 0f
 
     Card(
@@ -276,31 +279,53 @@ fun ReportsHeroCard(summary: ReportSummary) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text("Income", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(formatCurrency(income), style = MaterialTheme.typography.bodyLarge, color = Color(0xFF10B981))
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Spending", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(formatCurrency(spending), style = MaterialTheme.typography.bodyLarge, color = Color(0xFFEF4444))
-                }
-            }
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth(),
-                color = if (progress > 1f) Color(0xFFEF4444) else MaterialTheme.colorScheme.primary
-            )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Net", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Gradient net amount + caption
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 Text(
-                    formatCurrency(net),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (net >= 0) Color(0xFF10B981) else Color(0xFFEF4444)
+                    formatCurrency(Math.abs(net)),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = netColor,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    if (isPositive) "net" else "net loss",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 2.dp)
                 )
             }
+            // 6pt spend meter
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth().height(6.dp),
+                color = if (progress >= 1f) Color(0xFFEF4444) else MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            // Inline compact stats
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                CompactStat("Income", formatCurrency(income), Color(0xFF10B981))
+                CompactStat("Spending", formatCurrency(spending), Color(0xFFEF4444))
+                CompactStat("Net", formatCurrency(Math.abs(net)), netColor)
+            }
         }
+    }
+}
+
+@Composable
+private fun CompactStat(label: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodySmall, color = color, fontWeight = FontWeight.SemiBold)
     }
 }
 

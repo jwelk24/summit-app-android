@@ -3,6 +3,8 @@ package com.summit.android.ui.insights
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -10,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.summit.android.billing.PremiumManager
@@ -32,6 +35,8 @@ fun AIInsightsScreen(
     val isGeneratingDigest by viewModel.isGeneratingDigest.collectAsState()
     val isCategorizing by viewModel.isCategorizing.collectAsState()
     val categorizeResult by viewModel.categorizeResult.collectAsState()
+    val queryResult by viewModel.queryResult.collectAsState()
+    val isQuerying by viewModel.isQuerying.collectAsState()
     
     val currentTier by PremiumManager.currentTier.collectAsState()
 
@@ -43,6 +48,13 @@ fun AIInsightsScreen(
                 modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                item {
+                    AskYourMoneyCard(
+                        result = queryResult,
+                        isLoading = isQuerying,
+                        onAsk = { viewModel.askQuery(it) }
+                    )
+                }
                 item {
                     CheckInsSection(
                         onWeeklyReview = onWeeklyReview,
@@ -77,6 +89,13 @@ fun AIInsightsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
+                    AskYourMoneyCard(
+                        result = queryResult,
+                        isLoading = isQuerying,
+                        onAsk = { viewModel.askQuery(it) }
+                    )
+                }
+                item {
                     CheckInsSection(
                         onWeeklyReview = onWeeklyReview,
                         onWrapped = onWrapped,
@@ -100,6 +119,86 @@ fun AIInsightsScreen(
                         isLoading = isCategorizing,
                         result = categorizeResult,
                         onRun = { viewModel.runSmartCategorize() }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AskYourMoneyCard(
+    result: String?,
+    isLoading: Boolean,
+    onAsk: (String) -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+
+    val suggestions = listOf(
+        "How much did I spend on groceries this month?",
+        "What was my income last month?",
+        "How many transactions this month?",
+        "Average spending this year?"
+    )
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.QuestionAnswer, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Text("Ask Your Money", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+            Text(
+                "Ask a plain-English question about your spending or income — answered on your device.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text("e.g. How much did I spend on food?") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                trailingIcon = {
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    } else {
+                        IconButton(onClick = { if (text.isNotBlank()) onAsk(text) }) {
+                            Icon(Icons.Default.Send, contentDescription = "Ask")
+                        }
+                    }
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = { if (text.isNotBlank()) onAsk(text) })
+            )
+            if (result != null) {
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        result,
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            if (result == null && !isLoading) {
+                Text(
+                    "Try:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                suggestions.forEach { s ->
+                    Text(
+                        "\"$s\"",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { text = s }
                     )
                 }
             }

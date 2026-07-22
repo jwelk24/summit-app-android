@@ -6,11 +6,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import com.summit.android.data.AppDatabase
 import com.summit.android.service.AIInsightsService
+import com.summit.android.service.MoneyQueryService
 import com.summit.android.service.WeeklyDigest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.*
 
 class AIInsightsViewModel(application: Application) : AndroidViewModel(application) {
     private val db = Room.databaseBuilder(
@@ -32,6 +34,11 @@ class AIInsightsViewModel(application: Application) : AndroidViewModel(applicati
     private val _categorizeResult = MutableStateFlow<String?>(null)
     val categorizeResult: StateFlow<String?> = _categorizeResult
 
+    private val _queryResult = MutableStateFlow<String?>(null)
+    val queryResult: StateFlow<String?> = _queryResult
+    private val _isQuerying = MutableStateFlow(false)
+    val isQuerying: StateFlow<Boolean> = _isQuerying
+
     fun generateDigest() {
         viewModelScope.launch {
             _isGeneratingDigest.value = true
@@ -43,6 +50,25 @@ class AIInsightsViewModel(application: Application) : AndroidViewModel(applicati
                 // Handle error
             } finally {
                 _isGeneratingDigest.value = false
+            }
+        }
+    }
+
+    fun askQuery(question: String) {
+        viewModelScope.launch {
+            _isQuerying.value = true
+            _queryResult.value = null
+            try {
+                val transactions = db.transactionDao().getAll().first()
+                val categories = db.categoryDao().getCategories().first()
+                val categoryNames: Map<UUID, String> = categories.associate { it.id to it.name }
+                val query = MoneyQueryService.parse(question)
+                val result = MoneyQueryService.execute(query, transactions, categoryNames)
+                _queryResult.value = result.answer
+            } catch (e: Exception) {
+                _queryResult.value = "Couldn't process that — try rephrasing."
+            } finally {
+                _isQuerying.value = false
             }
         }
     }

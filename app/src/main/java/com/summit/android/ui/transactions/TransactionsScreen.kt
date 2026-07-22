@@ -24,6 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.summit.android.data.entity.TransactionEntity
 import com.summit.android.service.MerchantCleaner
 import com.summit.android.ui.transactions.viewmodel.TransactionsViewModel
+import androidx.compose.ui.platform.LocalContext
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -208,8 +209,11 @@ fun EmptyStateView(
 
 @Composable
 fun TransactionRow(transaction: TransactionEntity, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val displayMerchant = if (MerchantCleaner.isEnabled(context))
+        MerchantCleaner.clean(transaction.merchant) else transaction.merchant
     ListItem(
-        headlineContent = { Text(MerchantCleaner.clean(transaction.merchant)) },
+        headlineContent = { Text(displayMerchant) },
         supportingContent = {
             Text("${SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(transaction.date)} · ${transaction.memo ?: "No memo"}")
         },
