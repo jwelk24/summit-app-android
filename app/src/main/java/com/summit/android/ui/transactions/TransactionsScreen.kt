@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.summit.android.data.entity.TransactionEntity
 import com.summit.android.service.MerchantCleaner
+import com.summit.android.service.MerchantLogoService
 import com.summit.android.ui.transactions.viewmodel.TransactionsViewModel
 import androidx.compose.ui.platform.LocalContext
 import java.text.NumberFormat
@@ -212,11 +213,20 @@ fun TransactionRow(transaction: TransactionEntity, modifier: Modifier = Modifier
     val context = LocalContext.current
     val displayMerchant = if (MerchantCleaner.isEnabled(context))
         MerchantCleaner.clean(transaction.merchant) else transaction.merchant
+    val logosEnabled = MerchantLogoService.isEnabled(context)
     ListItem(
         headlineContent = { Text(displayMerchant) },
         supportingContent = {
             Text("${SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(transaction.date)} · ${transaction.memo ?: "No memo"}")
         },
+        leadingContent = if (logosEnabled) {
+            {
+                MerchantLogoView(
+                    merchant = transaction.merchant,
+                    fallbackColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            }
+        } else null,
         trailingContent = {
             val amountColor = if (transaction.amount.toDouble() < 0) MaterialTheme.colorScheme.onSurface else Color(0xFF10B981)
             Text(

@@ -20,6 +20,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
 import com.summit.android.data.AppDatabase
+import com.summit.android.service.MerchantLogoService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -180,6 +181,8 @@ fun PrivacyDataScreen(
     var showEraseDialog by remember { mutableStateOf(false) }
     var exportJson by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    var merchantLogosEnabled by remember { mutableStateOf(MerchantLogoService.isEnabled(context)) }
+    var showLogoConsentDialog by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let {
@@ -261,6 +264,30 @@ fun PrivacyDataScreen(
                 HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
             }
 
+            item { SettingsSectionHeader("Merchant Logos") }
+
+            item {
+                ListItem(
+                    headlineContent = { Text("Show merchant logos") },
+                    supportingContent = { Text("Off by default. Sends merchant names to a logo service — the only Summit feature that uses the network with your data.") },
+                    leadingContent = { Icon(Icons.Default.Image, contentDescription = null) },
+                    trailingContent = {
+                        Switch(
+                            checked = merchantLogosEnabled,
+                            onCheckedChange = { newValue ->
+                                if (newValue) {
+                                    showLogoConsentDialog = true
+                                } else {
+                                    merchantLogosEnabled = false
+                                    MerchantLogoService.setEnabled(context, false)
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
+            }
+
             item { SettingsSectionHeader("Cloud") }
 
             item {
@@ -272,6 +299,28 @@ fun PrivacyDataScreen(
                 )
             }
         }
+    }
+
+    if (showLogoConsentDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoConsentDialog = false },
+            title = { Text("Show merchant logos?") },
+            text = { Text("To show logos, Summit sends merchant names from your transactions to a logo service over the internet. It's the only Summit feature that sends any of your data off your device — your budgets, balances, and all AI stay on your phone. You can turn this off anytime.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    merchantLogosEnabled = true
+                    MerchantLogoService.setEnabled(context, true)
+                    MerchantLogoService.markConsentShown(context)
+                    showLogoConsentDialog = false
+                }) { Text("Enable — I understand") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    merchantLogosEnabled = false
+                    showLogoConsentDialog = false
+                }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showEraseDialog) {
