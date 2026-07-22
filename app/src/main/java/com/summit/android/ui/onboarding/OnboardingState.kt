@@ -9,6 +9,7 @@ object OnboardingState {
     private const val KEY_CHECKLIST_DISMISSED = "onboarding.checklistDismissed"
     private const val KEY_ACCOUNTS_VISITED = "onboarding.accountsVisited"
     private const val KEY_TOUR_DONE = "onboarding.tourDone"
+    private const val KEY_DISPLAY_NAME = "onboarding.displayName"
 
     private var prefs: SharedPreferences? = null
 
@@ -31,6 +32,10 @@ object OnboardingState {
     var hasTakenTour: Boolean
         get() = prefs?.getBoolean(KEY_TOUR_DONE, false) ?: false
         set(value) { prefs?.edit()?.putBoolean(KEY_TOUR_DONE, value)?.apply() }
+
+    var userDisplayName: String
+        get() = prefs?.getString(KEY_DISPLAY_NAME, "") ?: ""
+        set(value) { prefs?.edit()?.putString(KEY_DISPLAY_NAME, value)?.apply() }
 
     fun skipForExistingUser(transactionCount: Int, hasPlaidConnection: Boolean, isAuthenticated: Boolean) {
         if (hasCompletedWelcome) return

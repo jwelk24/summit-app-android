@@ -10,6 +10,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +31,7 @@ fun OnboardingWelcomeScreen(
     val pagerState = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
     val isLastPage = pagerState.currentPage == 2
+    var nameText by remember { mutableStateOf(OnboardingState.userDisplayName) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -51,6 +56,16 @@ fun OnboardingWelcomeScreen(
                     icon = Icons.Default.Terrain,
                     title = "Welcome to Summit",
                     subtitle = "Budget, net worth, and the road ahead — in one place.",
+                    nameField = {
+                        OutlinedTextField(
+                            value = nameText,
+                            onValueChange = { nameText = it; OnboardingState.userDisplayName = it },
+                            label = { Text("What should we call you?") },
+                            placeholder = { Text("Your name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
                     features = listOf(
                         Triple(Icons.Default.TableChart, "Give every dollar a job",
                             "Assign your money to categories so you always know what's safe to spend."),
@@ -61,6 +76,7 @@ fun OnboardingWelcomeScreen(
                     )
                 )
                 1 -> WelcomePage(
+                    nameField = null,
                     icon = Icons.Default.TableChart,
                     title = "Your Starter Budget",
                     subtitle = "We set up common categories and sample accounts so you can look around.",
@@ -74,6 +90,7 @@ fun OnboardingWelcomeScreen(
                     )
                 )
                 2 -> WelcomePage(
+                    nameField = null,
                     icon = Icons.Default.AccountBalance,
                     title = "Bring In Your Money",
                     subtitle = "Connect accounts for automatic imports, or log things yourself.",
@@ -140,7 +157,8 @@ private fun WelcomePage(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    features: List<Triple<ImageVector, String, String>>
+    features: List<Triple<ImageVector, String, String>>,
+    nameField: (@Composable () -> Unit)? = null
 ) {
     Column(
         modifier = Modifier
@@ -157,6 +175,9 @@ private fun WelcomePage(
         Text(subtitle, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center)
+        if (nameField != null) {
+            nameField()
+        }
         Column(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)

@@ -8,6 +8,7 @@ import com.summit.android.data.AppDatabase
 import com.summit.android.data.entity.CategoryEntity
 import com.summit.android.data.entity.CategoryGroupEntity
 import com.summit.android.service.BudgetEngine
+import com.summit.android.ui.budget.CategoryTileData
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -22,7 +23,11 @@ data class BudgetUiState(
     val activity: Map<UUID, BigDecimal> = emptyMap(),
     val ageOfMoney: Int? = null,
     val transactionCount: Int = 0,
-    val hasPlaidConnection: Boolean = false
+    val hasPlaidConnection: Boolean = false,
+    val savingsRate: Double = 0.5,
+    val netWorthTrend: Double = 0.5,
+    val insight: String = "",
+    val categoryTiles: List<CategoryTileData> = emptyList()
 )
 
 class BudgetViewModel(application: Application) : AndroidViewModel(application) {
@@ -63,16 +68,44 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
             set(Calendar.DAY_OF_MONTH, 1)
         }
 
+        val thisMonthTxs = transactions.filter {
+            val txCal = Calendar.getInstance().apply { time = it.date }
+            txCal.get(Calendar.YEAR) == year && txCal.get(Calendar.MONTH) + 1 == month
+        }
+        val income = thisMonthTxs.filter { it.amount > BigDecimal.ZERO }.sumOf { it.amount }
+        val expenses = thisMonthTxs.filter { it.amount < BigDecimal.ZERO }.sumOf { it.amount.abs() }
+        val savingsRate = if (income > BigDecimal.ZERO)
+            ((income - expenses).toDouble() / income.toDouble()).coerceIn(0.0, 1.0)
+        else 0.5
+        val available = engine.availableToBudget(transactions, budgetMonth, year, month)
+        val totalAssigned = allocationMap.values.fold(BigDecimal.ZERO, BigDecimal::add)
+        val totalActivity = activityMap.values.fold(BigDecimal.ZERO, BigDecimal::add)
+        val totalSpent = totalActivity.abs()
+        val insight = buildInsight(available, totalAssigned, totalSpent, income)
+        val tiles = categories.take(8).mapIndexed { idx, cat ->
+            CategoryTileData(
+                id = cat.id,
+                name = cat.name,
+                spent = (activityMap[cat.id] ?: BigDecimal.ZERO).abs(),
+                budget = allocationMap[cat.id] ?: BigDecimal.ZERO,
+                index = idx
+            )
+        }.filter { it.budget > BigDecimal.ZERO }
+
         BudgetUiState(
             groups = groups,
             categories = categories,
-            availableToBudget = engine.availableToBudget(transactions, budgetMonth, year, month),
+            availableToBudget = available,
             selectedDate = cal.time,
             allocations = allocationMap,
             activity = activityMap,
             ageOfMoney = BudgetEngine.ageOfMoneyDays(transactions),
             transactionCount = transactions.size,
-            hasPlaidConnection = plaidCount > 0
+            hasPlaidConnection = plaidCount > 0,
+            savingsRate = savingsRate,
+            netWorthTrend = 0.5,
+            insight = insight,
+            categoryTiles = tiles
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BudgetUiState())
 
@@ -94,6 +127,25 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                 engine.setAssigned(amount, category, month)
             }
         }
+    }
+
+    private fun buildInsight(
+        available: BigDecimal,
+        assigned: BigDecimal,
+        spent: BigDecimal,
+        income: BigDecimal
+    ): String {
+        return when {
+            available > BigDecimal.ZERO -> "You have ${formatCurrencySimple(available)} left to assign. Give every dollar a job."
+            available < BigDecimal.ZERO -> "You're over-assigned by ${formatCurrencySimple(available.abs())}. Pull some budget back."
+            assigned > BigDecimal.ZERO -> "Every dollar is assigned. Your budget is perfectly balanced."
+            income > BigDecimal.ZERO -> "Great start — keep logging transactions to build your picture."
+            else -> "Add your first transactions to get personalized insights."
+        }
+    }
+
+    private fun formatCurrencySimple(amount: BigDecimal): String {
+        return "$${"%,.0f".format(amount.toDouble())}"
     }
 
     fun autoAssign() {

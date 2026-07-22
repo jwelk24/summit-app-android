@@ -15,6 +15,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.summit.android.data.entity.CategoryEntity
 import com.summit.android.ui.budget.viewmodel.BudgetViewModel
+import com.summit.android.ui.onboarding.OnboardingState
 import com.summit.android.ui.transactions.formatCurrency
 import java.math.BigDecimal
 import java.util.*
@@ -95,10 +96,8 @@ fun BudgetScreen(
                 onPrevious = { viewModel.changeMonth(-1) },
                 onNext = { viewModel.changeMonth(1) }
             )
-            
-            AvailableToBudget(uiState.availableToBudget)
 
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxSize()) {
                 item {
                     GettingStartedSection(
                         transactionCount = uiState.transactionCount,
@@ -109,6 +108,19 @@ fun BudgetScreen(
                         onAddTransaction = onAddTransaction,
                         onConnectBank = onConnectBank,
                         onOpenSettings = onOpenSettings
+                    )
+                }
+                item {
+                    SummitBudgetHero(
+                        displayName = OnboardingState.userDisplayName,
+                        assigned = uiState.allocations.values.fold(BigDecimal.ZERO, BigDecimal::add),
+                        spent = uiState.activity.values.fold(BigDecimal.ZERO) { acc, v -> acc + v.abs() },
+                        availableToBudget = uiState.availableToBudget,
+                        savingsRate = uiState.savingsRate,
+                        netWorthTrend = uiState.netWorthTrend,
+                        tiles = uiState.categoryTiles,
+                        insight = uiState.insight,
+                        onInsightClick = { /* navigate to Insights tab handled by parent */ }
                     )
                 }
                 uiState.groups.forEach { group ->
