@@ -50,6 +50,7 @@ import com.summit.android.ui.budget.BudgetDraftScreen
 import com.summit.android.ui.debt.DebtPayoffScreen
 import com.summit.android.ui.settleup.SettleUpScreen
 import com.summit.android.ui.tax.TaxPackScreen
+import com.summit.android.ui.settings.PrivacyDataScreen
 import com.summit.android.ui.settings.SettingsScreen
 import com.summit.android.ui.inbox.ReviewInboxScreen
 import com.summit.android.ui.onboarding.OnboardingState
@@ -269,8 +270,12 @@ fun MainScreen() {
                     onSmartAlerts = { navController.navigate(Screen.SmartAlerts.route) },
                     onSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
                     onCustomizeAppearance = { navController.navigate(Screen.CustomizeAppearance.route) },
-                    onFeatureGuide = { navController.navigate(Screen.FeatureGuide.route) }
+                    onFeatureGuide = { navController.navigate(Screen.FeatureGuide.route) },
+                    onPrivacyData = { navController.navigate(Screen.PrivacyData.route) }
                 )
+            }
+            composable(Screen.PrivacyData.route) {
+                PrivacyDataScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.ReviewInbox.route) {
                 ReviewInboxScreen(

@@ -28,7 +28,8 @@ data class BudgetUiState(
     val savingsRate: Double = 0.5,
     val netWorthTrend: Double = 0.5,
     val insight: String = "",
-    val categoryTiles: List<CategoryTileData> = emptyList()
+    val categoryTiles: List<CategoryTileData> = emptyList(),
+    val projectedSpend: Map<UUID, BigDecimal> = emptyMap()
 )
 
 class BudgetViewModel(application: Application) : AndroidViewModel(application) {
@@ -110,6 +111,11 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
             )
         }.filter { it.budget > BigDecimal.ZERO }
 
+        val projectedSpendMap = categories.associate { cat ->
+            val catActivity = activityMap[cat.id] ?: BigDecimal.ZERO
+            cat.id to (engine.projectedMonthlySpend(catActivity, year, month) ?: BigDecimal.ZERO)
+        }.filter { (_, v) -> v > BigDecimal.ZERO }
+
         BudgetUiState(
             groups = groups,
             categories = categories,
@@ -123,7 +129,8 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
             savingsRate = savingsRate,
             netWorthTrend = 0.5,
             insight = insight,
-            categoryTiles = tiles
+            categoryTiles = tiles,
+            projectedSpend = projectedSpendMap
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BudgetUiState())
 

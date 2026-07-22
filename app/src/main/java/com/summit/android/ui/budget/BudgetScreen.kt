@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.summit.android.data.entity.CategoryEntity
+import com.summit.android.service.BudgetEngine
 import com.summit.android.ui.budget.viewmodel.BudgetViewModel
 import com.summit.android.ui.onboarding.OnboardingState
 import com.summit.android.ui.transactions.formatCurrency
@@ -137,10 +138,13 @@ fun BudgetScreen(
                         GroupHeader(group.name)
                     }
                     items(uiState.categories.filter { it.groupId == group.id }) { category ->
+                        val cal = java.util.Calendar.getInstance()
+                        cal.time = uiState.selectedDate
                         CategoryRow(
                             category = category,
                             assigned = uiState.allocations[category.id] ?: BigDecimal.ZERO,
                             activity = uiState.activity[category.id] ?: BigDecimal.ZERO,
+                            projectedSpend = uiState.projectedSpend[category.id],
                             onAssignedChange = { viewModel.setAssigned(category.id, it) }
                         )
                     }
@@ -213,6 +217,7 @@ fun CategoryRow(
     category: CategoryEntity,
     assigned: BigDecimal,
     activity: BigDecimal,
+    projectedSpend: BigDecimal? = null,
     onAssignedChange: (BigDecimal) -> Unit
 ) {
     val available = assigned.add(activity)
@@ -224,7 +229,16 @@ fun CategoryRow(
         ListItem(
             headlineContent = { Text(category.name) },
             supportingContent = {
-                Text("Activity: ${formatCurrency(activity.toDouble())} · Available: ${formatCurrency(available.toDouble())}")
+                androidx.compose.foundation.layout.Column {
+                    Text("Activity: ${formatCurrency(activity.toDouble())} · Available: ${formatCurrency(available.toDouble())}")
+                    if (projectedSpend != null && assigned > BigDecimal.ZERO) {
+                        SpendingPacePill(
+                            projected = projectedSpend,
+                            budget = assigned,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
             },
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {

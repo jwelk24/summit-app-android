@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -58,6 +59,29 @@ fun ReportsScreen(viewModel: ReportsViewModel = viewModel()) {
         ) {
             uiState.currentSummary?.let { summary ->
                 item { ReportsHeroCard(summary) }
+            }
+
+            // Tag filter chips
+            if (uiState.allTags.isNotEmpty()) {
+                item {
+                    TagFilterRow(
+                        tags = uiState.allTags,
+                        selected = uiState.selectedTag,
+                        onSelect = { viewModel.selectTag(it) }
+                    )
+                }
+            }
+
+            // Filtered label
+            uiState.selectedTag?.let { tag ->
+                item {
+                    Text(
+                        "Filtered: #$tag",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 0.dp)
+                    )
+                }
             }
 
             // Compare mode picker (mirrors iOS "Compare to" picker in the range section)
@@ -405,6 +429,29 @@ fun SectionHeader(title: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
     )
+}
+
+@Composable
+fun TagFilterRow(
+    tags: List<String>,
+    selected: String?,
+    onSelect: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        tags.forEach { tag ->
+            val isSelected = tag == selected
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelect(tag) },
+                label = { Text("#$tag") }
+            )
+        }
+    }
 }
 
 @Composable

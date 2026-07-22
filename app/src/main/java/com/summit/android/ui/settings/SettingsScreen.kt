@@ -21,7 +21,8 @@ fun SettingsScreen(
     onSmartAlerts: () -> Unit,
     onSubscriptions: () -> Unit,
     onCustomizeAppearance: () -> Unit,
-    onFeatureGuide: () -> Unit = {}
+    onFeatureGuide: () -> Unit = {},
+    onPrivacyData: () -> Unit = {}
 ) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Settings") }) }
@@ -69,6 +70,10 @@ fun SettingsScreen(
             item {
                 SettingsRow("Customize Tabs & Colors", Icons.Default.Palette, onCustomizeAppearance)
             }
+            item { SettingsSectionHeader("Privacy") }
+            item {
+                SettingsRow("Privacy & Data", Icons.Default.Lock, onPrivacyData)
+            }
             item { SettingsSectionHeader("Help") }
             item {
                 SettingsRow("Feature Guide", Icons.Default.Map, onFeatureGuide)
@@ -78,7 +83,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsSectionHeader(title: String) {
+internal fun SettingsSectionHeader(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelMedium,

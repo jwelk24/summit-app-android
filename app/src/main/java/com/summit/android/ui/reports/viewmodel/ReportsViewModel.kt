@@ -35,7 +35,9 @@ data class ReportsUiState(
     val compareSummary: ReportSummary? = null,
     val compareMode: ReportCompareMode = ReportCompareMode.OFF,
     val periodTransactions: List<TransactionEntity> = emptyList(),
-    val categoryNames: Map<UUID, String> = emptyMap()
+    val categoryNames: Map<UUID, String> = emptyMap(),
+    val allTags: List<String> = emptyList(),
+    val selectedTag: String? = null
 )
 
 class ReportsViewModel(application: Application) : AndroidViewModel(application) {
@@ -45,47 +47,55 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     ).addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
 
     private val _compareMode = MutableStateFlow(ReportCompareMode.OFF)
+    private val _selectedTag = MutableStateFlow<String?>(null)
 
     fun setCompareMode(mode: ReportCompareMode) { _compareMode.value = mode }
+    fun selectTag(tag: String?) { _selectedTag.value = if (_selectedTag.value == tag) null else tag }
 
     val uiState: StateFlow<ReportsUiState> = combine(
         db.transactionDao().getAll(),
         db.categoryDao().getCategories(),
-        _compareMode
-    ) { transactions, categories, compareMode ->
+        combine(_compareMode, _selectedTag) { m, t -> Pair(m, t) }
+    ) { transactions, categories, (compareMode, selectedTag) ->
         val calendar = Calendar.getInstance()
         val currentYear = calendar.get(Calendar.YEAR)
         val currentMonth = calendar.get(Calendar.MONTH) + 1
 
-        // Current Month Spending
+        // All tags across all transactions
+        val allTags = transactions.flatMap { it.tagList() }.distinct().sorted()
+
+        // Current Month Spending — filtered by tag if one is selected
         val categoryMap = categories.associateBy { it.id }
-        val currentMonthTxs = transactions.filter {
+        val tagFilteredTxs = if (selectedTag != null)
+            transactions.filter { it.tagList().contains(selectedTag) }
+        else transactions
+        val currentMonthTxs = tagFilteredTxs.filter {
             calendar.time = it.date
             calendar.get(Calendar.YEAR) == currentYear && (calendar.get(Calendar.MONTH) + 1) == currentMonth && it.amount < BigDecimal.ZERO
         }
-        
+
         val spendingByCat = currentMonthTxs.groupBy { it.categoryId }
             .map { (catId, txs) ->
                 val name = categoryMap[catId]?.name ?: "Uncategorized"
                 CategorySpending(name, txs.fold(BigDecimal.ZERO) { acc, tx -> acc.add(tx.amount.abs()) })
             }.sortedByDescending { it.amount }
 
-        // 6-Month Flow
+        // 6-Month Flow — also filtered by tag
         val sixMonthFlow = mutableListOf<MonthlyFlow>()
         for (i in 5 downTo 0) {
             val cal = Calendar.getInstance()
             cal.add(Calendar.MONTH, -i)
             val year = cal.get(Calendar.YEAR)
             val month = cal.get(Calendar.MONTH) + 1
-            
-            val monthTxs = transactions.filter {
+
+            val monthTxs = tagFilteredTxs.filter {
                 calendar.time = it.date
                 calendar.get(Calendar.YEAR) == year && (calendar.get(Calendar.MONTH) + 1) == month
             }
-            
+
             val income = monthTxs.filter { it.amount > BigDecimal.ZERO }.fold(BigDecimal.ZERO) { acc, tx -> acc.add(tx.amount) }
             val spending = monthTxs.filter { it.amount < BigDecimal.ZERO }.fold(BigDecimal.ZERO) { acc, tx -> acc.add(tx.amount.abs()) }
-            
+
             val label = cal.getDisplayName(Calendar.MONTH, Calendar.SHORT, Locale.getDefault()) ?: ""
             sixMonthFlow.add(MonthlyFlow(label, income, spending))
         }
@@ -111,7 +121,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
             compareSummary = compareSummary,
             compareMode = compareMode,
             periodTransactions = periodTxs,
-            categoryNames = categoryNames
+            categoryNames = categoryNames,
+            allTags = allTags,
+            selectedTag = selectedTag
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ReportsUiState())
 

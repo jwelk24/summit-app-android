@@ -40,6 +40,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object ReviewInbox : Screen("review_inbox", "Review", Icons.Default.Inbox)
     object FeatureGuide : Screen("feature_guide", "Feature Guide", Icons.Default.Map)
     object MonthRecap : Screen("month_recap", "Month Recap", Icons.Default.CalendarMonth)
+    object PrivacyData : Screen("privacy_data", "Privacy & Data", Icons.Default.Lock)
 }
 
 val bottomNavItems = listOf(

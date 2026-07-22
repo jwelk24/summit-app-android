@@ -22,6 +22,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.summit.android.data.entity.TransactionEntity
+import com.summit.android.service.MerchantCleaner
 import com.summit.android.ui.transactions.viewmodel.TransactionsViewModel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -208,7 +209,7 @@ fun EmptyStateView(
 @Composable
 fun TransactionRow(transaction: TransactionEntity, modifier: Modifier = Modifier) {
     ListItem(
-        headlineContent = { Text(transaction.merchant) },
+        headlineContent = { Text(MerchantCleaner.clean(transaction.merchant)) },
         supportingContent = {
             Text("${SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(transaction.date)} · ${transaction.memo ?: "No memo"}")
         },

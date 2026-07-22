@@ -1,5 +1,6 @@
 package com.summit.android.ui.networth
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,10 +21,12 @@ import com.patrykandpatrick.vico.compose.chart.Chart
 import com.patrykandpatrick.vico.compose.chart.line.lineChart
 import com.patrykandpatrick.vico.core.entry.entryModelOf
 import com.summit.android.billing.SubscriptionTier
+import com.summit.android.data.entity.AccountEntity
 import com.summit.android.ui.networth.viewmodel.NetWorthTimeRange
 import com.summit.android.ui.networth.viewmodel.NetWorthViewModel
 import com.summit.android.ui.transactions.formatCurrency
 import java.math.BigDecimal
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,6 +35,7 @@ fun NetWorthScreen(
     viewModel: NetWorthViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var reconcileAccount by remember { mutableStateOf<AccountEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -82,14 +86,23 @@ fun NetWorthScreen(
 
             item { SectionHeader("Assets") }
             items(uiState.assets) { account ->
-                AccountRow(account)
+                AccountRow(account, onReconcile = { reconcileAccount = account })
             }
 
             item { SectionHeader("Liabilities") }
             items(uiState.liabilities) { account ->
-                AccountRow(account)
+                AccountRow(account, onReconcile = { reconcileAccount = account })
             }
         }
+    }
+
+    reconcileAccount?.let { account ->
+        ReconcileSheet(
+            accountId = account.id,
+            accountName = account.name,
+            currentBalance = account.balance,
+            onDismiss = { reconcileAccount = null }
+        )
     }
 }
 
@@ -177,16 +190,23 @@ fun HoldingRow(holding: com.summit.android.data.entity.InvestmentHoldingEntity) 
 }
 
 @Composable
-fun AccountRow(account: com.summit.android.data.entity.AccountEntity) {
+fun AccountRow(account: AccountEntity, onReconcile: (() -> Unit)? = null) {
     ListItem(
         headlineContent = { Text(account.name) },
         supportingContent = { Text(account.type.displayName) },
         trailingContent = {
-            Text(
-                formatCurrency(account.balance.toDouble()),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    formatCurrency(account.balance.toDouble()),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+                if (onReconcile != null) {
+                    IconButton(onClick = onReconcile, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Checklist, contentDescription = "Reconcile", modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
         }
     )
 }
